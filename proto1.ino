@@ -13,7 +13,8 @@
 #define chipSelect 5
 int i, SessionMode=0;
 String ClickStatus="";
-
+int timer=0;
+int randNum=0;
 char* ssid = "Zuarifurnituresls5.1";
 char* password = "bedrock@8540";
 
@@ -27,14 +28,15 @@ OneButton button(13, true);
 //json vaiable/object
 File myFile;
 
-String fileName ="/something.txt"; //json file name
+String fileName;
 int fileValue=0;
-
+//String fileName=filename.toString();
 
 
 MD5Builder _md5;
 
-String md5(String str) {
+String md5(String str) 
+{
     _md5.begin();
     _md5.add(String(str));
     _md5.calculate();
@@ -44,57 +46,64 @@ String md5(String str) {
 void createJsonFile()
 {
   //gps.encode(RTK.read());
- //fileName = "NEW.txt";//String(gps.time.value())+"_"+String(gps.date.value())+"_UTC_Time_zone.txt";
+  //fileName = filename.toString();//String(gps.time.value())+"_"+String(gps.date.value())+"_UTC_Time_zone.txt";
+  fileName="/EZ_RTK_"+String(random(0,300))+".json";
+  Serial.println("Surveying session STARTED!!\n");
+  Serial.println("Your file name is : "+String(fileName));
   myFile = SD.open(fileName, FILE_WRITE);
-  if (myFile) {
-    for (i = 0; i <= 7; i++) {
-      myFile.print(i);
-      myFile.println("/");
-    }
+  if (myFile) 
+  {
+    myFile.println("User: Ayush kumar\nContact number= 7004289970");
     myFile.close();
-    Serial.println("Data written");
-  } else {
+    Serial.println("Succesfully created the file\n");
+  } 
+  else 
+  {
     // if the file didn't open, print an error:
-    Serial.println("Surveying Session started\nNo file to open...");
+    Serial.println("No file to open...");
   }
+  if (!SD.exists(fileName))
+  Serial.println("NO SUCH FILE FOUND");
 }
 void SD_Card_Setup();
 void logJson()
 {
   //starting logging JSON
-  Serial.println("loggingstarted");
+  Serial.println("Opening file for appendng new data!!");
   myFile = SD.open(fileName,FILE_APPEND);
   //myFile.seek(2);
   if(myFile)
   {
     Serial.println("File opened for appending new data");
-  }
-  DynamicJsonDocument  dataPacketJson(200);
-  {
-    Serial.println("logging started");
-    dataPacketJson["Latitude"] = "gps.location.rawLat().deg";
-    dataPacketJson["Longitude"] = "gps.location.rawLng().deg";
-    dataPacketJson["Date"] = "gps.date.value()";
-    dataPacketJson["Time"] = "gps.time.value()";
-    dataPacketJson["Speed"] = "gps.speed.kmph()";
-    dataPacketJson["Altitude"] = "gps.altitude.meters()";
-    dataPacketJson["Sattelites"] = "gps.satellites.value()";
-    dataPacketJson["HDOP"]= "gps.hdop.value()";
-    Serial.println("data packet created");
-    if (myFile) 
+    DynamicJsonDocument  dataPacketJson(200);
     {
+      dataPacketJson["Latitude"] = "gps.location.rawLat().deg";
+      dataPacketJson["Longitude"] = "gps.location.rawLng().deg";
+      dataPacketJson["Date"] = "gps.date.value()";
+      dataPacketJson["Time"] = "gps.time.value()";
+      dataPacketJson["Speed"] = "gps.speed.kmph()";
+      dataPacketJson["Altitude"] = "gps.altitude.meters()";
+      dataPacketJson["Sattelites"] = "gps.satellites.value()";
+      dataPacketJson["HDOP"]= "gps.hdop.value()";
+      Serial.println("data packet created");
       Serial.println("File opened and logging started");
-     //writting data on the file
+      //writting data on the file
       Serial.print("Filename --> ");
       Serial.println(fileName);
       Serial.println("Writting JSON on the file ...");
       //myFile.seek(2);
       serializeJsonPretty(dataPacketJson, myFile);
-      Serial.println("...");
+      myFile.println("&");
+      Serial.println("Data logged successfully...\n\n");
       myFile.close();
     }
   }
+  
+  else{
+    Serial.println("LOLLzz you DUMB!!\n\nPlease start a session before logging the data xD");
+  }
 }
+
 String listDir(fs::FS &fs, const char * dirname, uint8_t levels){
     String files = "";
 
@@ -179,7 +188,6 @@ void setup() {
         Serial.println("No SD card attached");
         return;
     }
-  
     listDir(SD, "/", 0);
 
     Serial.println();
@@ -191,7 +199,12 @@ void setup() {
 
     while (WiFi.status() != WL_CONNECTED) {
         delay(1000);
+        timer++;
         Serial.print(".");
+        if (timer==10)
+        {
+          break;
+        }
     }
 
     Serial.println("");
@@ -245,7 +258,7 @@ bool checksum(String commhash){
 
 void loop(){
    button.tick();
-   delay(20);
+   delay(10);
     if (Serial.available()) {
         String comm=Serial.readString();
         Serial.println(comm);
@@ -265,7 +278,8 @@ void SD_Card_Setup()
 
   Serial.println("Initializing SD card...");
 
-  if (!SD.begin(chipSelect)) {
+  if (!SD.begin(chipSelect)) 
+  {
     Serial.println("SD card initialization failed. Things to check:");
     Serial.println("1. is a card inserted?");
     Serial.println("2. is your wiring correct?");
@@ -273,7 +287,6 @@ void SD_Card_Setup()
     Serial.println("Note: press reset or reopen this serial monitor after fixing your issue!");
     while (true);
   }
-
   Serial.println("SD card initialised!");
 }
 
@@ -293,21 +306,19 @@ void singleclick()                                  // what happens when the but
  
 void longclick()                                    // what happens when button is long-pressed
 {                                   
-  Serial.println("Long click - Session creation and destruction");
+  Serial.print("\n\nLong click - ");
   ClickStatus="LongClick";
   SessionMode=!SessionMode;
   if (SessionMode==1)
   {
-    createJsonFile(); 
-                             
+    createJsonFile();                       
   }
   if (SessionMode==0)
   {
    if (SD.exists(fileName)) 
    {
-
-    Serial.println(String(fileName)+" Exists");
-
+    Serial.println("Surveying session TERMINATED\nYour data logged inside file : "+String(fileName));
+    fileName="";
   }
     else 
     {
