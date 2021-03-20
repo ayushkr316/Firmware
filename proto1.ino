@@ -60,7 +60,7 @@ void createJsonFile()
   else 
   {
     // if the file didn't open, print an error:
-    Serial.println("No file to open...");
+    Serial.println("No file to open....");
   }
   if (!SD.exists(fileName))
   Serial.println("NO SUCH FILE FOUND");
