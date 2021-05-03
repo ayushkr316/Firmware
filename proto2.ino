@@ -2,14 +2,14 @@
  #include "SPIFFS.h"
 #include "WiFi.h"
 #include "ESPAsyncWebServer.h"
-#include "MD5.h"
+//#include "MD5.h"
 //#include "SD.h"
-#include <MD5Builder.h>
+//#include <MD5Builder.h>
 #include <SPI.h>
 #include <SD.h>
 #include "OneButton.h"
-#include <ArduinoJson.h>
-#include <BluetoothSerial.h>
+//#include <ArduinoJson.h>
+//#include <BluetoothSerial.h>
 //#include <TinyGPS++>
 #define chipSelect 5
 int i, SessionMode=0;
@@ -28,21 +28,21 @@ OneButton button(21, true);
 
 //json vaiable/object
 File myFile;
-BluetoothSerial BT;
+//BluetoothSerial BT;
 String fileName;
 int fileValue=0;
 //String fileName=filename.toString();
 
 
-MD5Builder _md5;
-
-String md5(String str) 
-{
-    _md5.begin();
-    _md5.add(String(str));
-    _md5.calculate();
-    return _md5.toString();
-}
+//MD5Builder _md5;
+//
+//String md5(String str) 
+//{
+//    _md5.begin();
+//    _md5.add(String(str));
+//    _md5.calculate();
+//    return _md5.toString();
+//}
 void hostServer();
 void SD_Card_Setup();
 void parser();
@@ -78,28 +78,42 @@ void logJson()
   if(myFile)
   {
     Serial.println("File opened for appending new data");
-    DynamicJsonDocument  dataPacketJson(200);
-    {
-      dataPacketJson["Latitude"] = "gps.location.rawLat().deg";
-      dataPacketJson["Longitude"] = "gps.location.rawLng().deg";
-      dataPacketJson["Date"] = "gps.date.value()";
-      dataPacketJson["Time"] = "gps.time.value()";
-      dataPacketJson["Speed"] = "gps.speed.kmph()";
-      dataPacketJson["Altitude"] = "gps.altitude.meters()";
-      dataPacketJson["Sattelites"] = "gps.satellites.value()";
-      dataPacketJson["HDOP"]= "gps.hdop.value()";
-      Serial.println("data packet created");
-      Serial.println("File opened and logging started");
-      //writting data on the file
-      Serial.print("Filename --> ");
-      Serial.println(fileName);
-      Serial.println("Writting JSON on the file ...");
-      //myFile.seek(2);
-      serializeJsonPretty(dataPacketJson, myFile);
-      myFile.println("&");
-      Serial.println("Data logged successfully...\n\n");
-      myFile.close();
-    }
+//    DynamicJsonDocument  dataPacketJson(200);
+//    {
+//      dataPacketJson["Latitude"] = "gps.location.rawLat().deg";
+//      dataPacketJson["Longitude"] = "gps.location.rawLng().deg";
+//      dataPacketJson["Date"] = "gps.date.value()";
+//      dataPacketJson["Time"] = "gps.time.value()";
+//      dataPacketJson["Speed"] = "gps.speed.kmph()";
+//      dataPacketJson["Altitude"] = "gps.altitude.meters()";
+//      dataPacketJson["Sattelites"] = "gps.satellites.value()";
+//      dataPacketJson["HDOP"]= "gps.hdop.value()";
+//      Serial.println("data packet created");
+//      Serial.println("File opened and logging started");
+//      //writting data on the file
+//      Serial.print("Filename --> ");
+//      Serial.println(fileName);
+//      Serial.println("Writting JSON on the file ...");
+//      //myFile.seek(2);
+//      serializeJsonPretty(dataPacketJson, myFile);
+//      myFile.println("&");
+//      Serial.println("Data logged successfully...\n\n");
+//      myFile.close();
+//    }
+    myFile.println ("{\nTime : String(gps.time.value())");
+    myFile.println ("Date : String(gps.date.value())");
+    myFile.println ("Latitude : String(gps.location.rawLat().deg)");
+    myFile.println ("Longitude : String(gps.location.rawLng().deg)");
+    myFile.println ("Speed : String(gps.speed.kmph())");
+    myFile.println ("Altitude : String(gps.altitude.meters())");
+    myFile.println ("Sattelites : String(gps.satellites.value())");
+    myFile.println ("HDOP : String(gps.hdop.value())");
+    myFile.println ("Time : String(gps.time.value())\n}");
+
+    
+    myFile.println("!");
+    Serial.println("Data logged successfully...\n\n");
+    myFile.close();
   }
   
   else{
@@ -169,7 +183,7 @@ void deleteFile(fs::FS &fs, String path){
 void setup() {
     Serial.begin(115200);
     SD_Card_Setup();
-    BT.begin("$EZ-RTK");
+//    BT.begin("$EZ-RTK");
   button.attachDoubleClick(doubleclick);            // link the function to be called on a doubleclick event.
   button.attachClick(singleclick);                  // link the function to be called on a singleclick event.
   button.attachLongPressStop(longclick);
@@ -258,19 +272,19 @@ void setup() {
 //    server.begin();
 }
 
-bool checksum(String commhash){
-    int fnsstart = commhash.indexOf('$');
-    int l= commhash.length() - 32;
-    String hash = commhash.substring(l, commhash.length());
-    String command = commhash.substring(fnsstart, l);
-
-    if(hash == md5(command)){
-        return true;
-    }
-    else{
-        return false;
-    }
-}
+//bool checksum(String commhash){
+//    int fnsstart = commhash.indexOf('$');
+//    int l= commhash.length() - 32;
+//    String hash = commhash.substring(l, commhash.length());
+//    String command = commhash.substring(fnsstart, l);
+//
+//    if(hash == md5(command)){
+//        return true;
+//    }
+//    else{
+//        return false;
+//    }
+//}
 
 void loop(){
    button.tick();
@@ -364,21 +378,21 @@ char password[30];
     readString += c; //makes the String readString
     delay(8);  //slow looping to allow buffer to fill with next character
   }
-  while(BT.available())
-  {
-    buff=1;
-    
-    d = BT.read();  //gets one byte from serial buffer
-    readString += d; //makes the String readString
-    delay(8);  //slow looping to allow buffer to fill with next character
-  }
-  if(buff==1)
-  { 
-    Serial.println("WiFi credentials recieved from Bluetooth");//nDisconnecting Bluetooth to avoid interferences...");
-    BT.disconnect();
-    Serial.println("Bluetooth Disconnected"); 
-    buff=0;
-  }
+//  while(BT.available())
+//  {
+//    buff=1;
+//    
+//    d = BT.read();  //gets one byte from serial buffer
+//    readString += d; //makes the String readString
+//    delay(8);  //slow looping to allow buffer to fill with next character
+//  }
+//  if(buff==1)
+//  { 
+//    Serial.println("WiFi credentials recieved from Bluetooth");//nDisconnecting Bluetooth to avoid interferences...");
+//    BT.disconnect();
+//    Serial.println("Bluetooth Disconnected"); 
+//    buff=0;
+//  }
 
   if (readString.length() > 0) 
   {
@@ -442,7 +456,7 @@ char password[30];
               Serial.println("WiFi connection estabilished with "+String(ssid));
               Serial.print("IP Address : ");
               Serial.println(WiFi.localIP());
-              BT.println(WiFi.localIP());
+//              BT.println(WiFi.localIP());
               hostServer();
               Serial.println("Server hosted");
               Serial.println();
@@ -474,24 +488,16 @@ void hostServer()
         request->send(SD, fn, String(), true);
     });
 
-    server.on("/delete", HTTP_GET, [](AsyncWebServerRequest *request){
-        int fnsstart = request->url().lastIndexOf('/');
-        String fn = request->url().substring(fnsstart);
-        //Serial.println("Download File: "+fn);
-        // ... and finally
-        deleteFile(SD, fn);
-        String files = listDir(SD, "/", 0);
-        request->send(200, "text/plain", files); //send back remaining files
-    });
+//    server.on("/delete", HTTP_GET, [](AsyncWebServerRequest *request){
+//        int fnsstart = request->url().lastIndexOf('/');
+//        String fn = request->url().substring(fnsstart);
+//        //Serial.println("Download File: "+fn);
+//        // ... and finally
+//        deleteFile(SD, fn);
+//        String files = listDir(SD, "/", 0);
+//        request->send(200, "text/plain", files); //send back remaining files
+//    });
 
-    server.on("/command", HTTP_GET, [](AsyncWebServerRequest *request){
-        if(checksum(request->url())){
-            request->send(200, "text/plain", "ACK");  
-        }
-        else{
-            request->send(200, "text/plain", "NACK: Error in command transmission");  
-        }
-    });
 
     server.begin();
 }
