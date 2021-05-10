@@ -401,4 +401,15 @@ void hostServer()
         String files = listDir(SD, "/", 0);
         request->send(200, "text/plain", files); //send back remaining files
     }); 
+  
+  server.on("/command", HTTP_GET, [](AsyncWebServerRequest *request){
+    int fnsstart = request->url().indexOf('$');
+    String command = request->url().substring(fnsstart, request->url().length());
+    commandPallete(command);
+    request->send(200, "text/plain", "ACK");  
+  });
+
+  server.on("/livedata", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/plain", globe); 
+  });
 }
