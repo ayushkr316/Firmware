@@ -1,0 +1,131 @@
+#include <MPU6050_tockn.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <HardwareSerial.h>
+#include <TinyGPS++.h>
+
+Adafruit_SSD1306 display(-1);
+MPU6050 mpu6050(Wire);
+HardwareSerial GPS(1);
+TinyGPSPlus gps;
+String SSID1 = "WIFI NAME";
+
+void setup()   
+{ 
+  Serial.begin(115200);
+  Wire.begin();
+  mpu6050.begin();
+  mpu6050.calcGyroOffsets(true);      
+
+  //GPS begin
+  GPS.begin(9600, SERIAL_8N1, 16, 17);//rx,tx        
+  // initialize with the I2C addr 0x3C
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  
+
+  // Clear the buffer.
+  display.clearDisplay();
+
+  // Display Text
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.setCursor(0,20);
+  display.println("HELLO USER");
+  display.println("Welcome to the EZ-RTK");
+  display.display();
+  delay(2000);
+  display.clearDisplay();
+
+  // Display Inverted Text
+//  display.setTextColor(BLACK, WHITE); // 'inverted' text
+//  display.setCursor(0,28);
+//  display.println("Hello world!");
+//  display.display();
+//  delay(2000);
+//  display.clearDisplay();
+
+  // Changing Font Size
+//  display.setTextColor(WHITE);
+//  display.setCursor(0,24);
+//  display.setTextSize(2);
+//  display.println("Hello!");
+//  display.display();
+//  delay(2000);
+//  display.clearDisplay();
+//
+//  // Display Numbers
+//  display.setTextSize(1);
+//  display.setCursor(0,28);
+//  display.println(123456789);
+//  display.display();
+//  delay(2000);
+//  display.clearDisplay();
+
+  // Specifying Base For Numbers
+//  display.setCursor(0,28);
+//  display.print("0x"); display.print(0xFF, HEX); 
+//  display.print("(HEX) = ");
+//  display.print(0xFF, DEC);
+//  display.println("(DEC)"); 
+//  display.display();
+//  delay(2000);
+//  display.clearDisplay();
+//
+//  // Display ASCII Characters
+//  display.setCursor(0,24);
+//  display.setTextSize(2);
+//  display.write(3);
+//  display.display();
+//  delay(2000);
+//  display.clearDisplay();
+//
+//  // Scroll full screen
+//  display.setCursor(0,0);
+//  display.setTextSize(1);
+//  display.println("Full");
+//  display.println("screen");
+//  display.println("scrolling!");
+//  display.display();
+//  display.startscrollright(0x00, 0x07);
+//  delay(2000);
+//  display.stopscroll();
+//  delay(1000);
+//  display.startscrollleft(0x00, 0x07);
+//  delay(2000);
+//  display.stopscroll();
+//  delay(1000);    
+//  display.startscrolldiagright(0x00, 0x07);
+//  delay(2000);
+//  display.startscrolldiagleft(0x00, 0x07);
+//  delay(2000);
+//  display.stopscroll();
+//  display.clearDisplay();
+//
+//  // Scroll part of the screen
+//  display.setCursor(0,0);
+//  display.setTextSize(1);
+//  display.println("Scroll");
+//  display.println("some part");
+//  display.println("of the screen.");
+//  display.display();
+//  display.startscrollright(0x00, 0x00);
+}
+
+void loop() 
+{
+  if(GPS.available())
+  {
+    gps.encode(GPS.read());
+  }
+  display.clearDisplay();
+  display.setCursor(0,0);
+  display.setTextSize(1);
+  display.println("Latitude : "+String(gps.location.rawLat().deg));
+  display.println("Longitude :"+String(gps.location.rawLng().deg));
+  display.println("WiFi connected to : "+String(SSID1));
+  display.println("IP Address : 192.168.43.53");
+  display.print("X offset : "+String(mpu6050.getAngleX()));
+  display.println("\tY offset : "+String(mpu6050.getAngleY()));
+  display.println("\tZ offset : "+String(mpu6050.getAngleZ()));
+  display.display();
+}
