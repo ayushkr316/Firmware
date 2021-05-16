@@ -69,7 +69,7 @@ void createJsonFile()
   fileName="/EZ_RTK_"+String(random(0,300))+".json";
   Serial.println("Surveying session STARTED!!\n");
   Serial.println("Your file name is : "+String(fileName));
-  winflag6=1;
+  winflag6=1;  //variable to wake the window in for loop
   myFile = SD.open(fileName, FILE_WRITE);
   if (myFile) 
   {
@@ -103,13 +103,13 @@ void logJson()
     myFile.println ("Time : "+String(gps.time.value())+"\n}");
     myFile.println("!");
     Serial.println("Data logged successfully...\n\n");
-    winflag4=1;
+    winflag4=1; //variable to wake the window in void loop
     myFile.close();
   }
   else 
   {
     Serial.println("\nPlease start a session before logging the data!!!");
-    winflag5=1;
+    winflag5=1; //variable to wake the window in void loop
   }
 }
 
@@ -447,7 +447,8 @@ void window8()
   display.setCursor(0,14);
   display.setTextSize(1);
   display.println("  Configured as");
-  display.println("  BASE ");
+  display.setTextSize(2);
+  display.println(" ROVER");
   display.display();
 }
 void window9()
@@ -456,7 +457,8 @@ void window9()
   display.setCursor(0,14);
   display.setTextSize(1);
   display.println("  Configured as");
-  display.println("  BASE ");
+  display.setTextSize(2);
+  display.println(" BASE ");
   display.display();
 }
 void window10()
@@ -523,7 +525,7 @@ void longclick()                                    // what happens when button 
    {
     Serial.println("Surveying session TERMINATED\nYour data logged inside file : "+String(fileName));
     fileName="";
-    winflag7=1;///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    winflag7=1;//variable to wake the window in void loop
   }
     else 
     {
@@ -539,7 +541,7 @@ void parser()
   String SSID1, PASS;
   //char ssid[30],c,d;
   //char password[30];
-  char c,d;
+  char c;
   String command;
 
   while (Serial.available()) 
@@ -556,17 +558,18 @@ void parser()
 
   if (command.length() > 0) 
   {
-    if(command.equals("$EZ_RTK|SET-MODE|ROVER"))
+    //Serial.println("."+command+".");
+    if(command.equals("$EZ_RTK|SET-MODE|ROVER\n")||command.equals("$EZ_RTK|SET-MODE|ROVER"))
     {
       Serial.println("Thanks for using EZ_RTK, your RTK has been configured as a ROVER ");
       command="";
-      winflag9=1;
+      winflag8=1; //variable to wake the window in void loop
     }
-    else if(command.equals("$EZ_RTK|SET-MODE|BASE"))
+    else if(command.equals("$EZ_RTK|SET-MODE|BASE\n")||command.equals("$EZ_RTK|SET-MODE|BASE"))
     {
       Serial.println("Thanks for using EZ_RTK, your RTK has been configured as a BASE");
       command="";
-      winflag8=1;
+      winflag9=1;//variable to wake the window in void loop
     }
     else if(command.startsWith("$EZ_RTK|SET-WIFI|", 0))
     {
@@ -610,7 +613,7 @@ void parser()
               Serial.println("WiFi connection estabilished with "+String(ssid1));
               Serial.print("IP Address : ");
               Serial.println(WiFi.localIP());
-              winflag10=1;
+              winflag10=1;  //variable to wake the window in void loop
               hostServer();
               Serial.println("Server hosted");
               Serial.println();
@@ -619,6 +622,11 @@ void parser()
       
       command="";
     }
+    else
+    {
+      Serial.println("Please check your command : "+command);
+    }
+    
   }
 }
 
