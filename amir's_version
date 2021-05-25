@@ -1,0 +1,724 @@
+#include "FS.h"
+#include <WiFi.h>
+#include "ESPAsyncWebServer.h"
+#include <SPI.h>
+#include <SD.h>
+#include "OneButton.h"
+#include <HardwareSerial.h>
+#include <MPU6050_tockn.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <TinyGPS++.h>
+
+#define chipSelect 5
+int i, SessionMode = 0;
+String ClickStatus = "";
+int timer = 0;
+int randNum = 0;
+char *ssid = "$EZ_RTK";
+char *password = "1234567890";
+char ssid1[30], password1[30];
+
+String globe = "Error: PX1122R Module not connected.";
+String str0, str1;
+const unsigned long eventInterval = 2000;
+unsigned long previousTime = 0;
+int ck = 0;
+
+AsyncWebServer server(80);
+HardwareSerial MySerial(1);
+OneButton button(15, true);
+Adafruit_SSD1306 display(128, 64, &Wire, -1);
+MPU6050 mpu6050(Wire);
+HardwareSerial GPS(1);
+TinyGPSPlus gps;
+
+File myFile;
+
+int flag = 0;
+int winflag4 = 0;
+int winflag5 = 0;
+int winflag6 = 0;
+int winflag7 = 0;
+int winflag8 = 0;
+int winflag9 = 0;
+int winflag10 = 0;
+int hotspotcmd = 0;
+
+String fileName;
+int fileValue = 0;
+
+void hostServer();
+void SD_Card_Setup();
+void parser();
+
+void createJsonFile()
+{
+	//gps.encode(RTK.read());
+	//fileName = filename.toString();//String(gps.time.value())+"_"+String(gps.date.value())+"_UTC_Time_zone.txt";
+	fileName = "/EZ_RTK_" + String(random(0, 300)) + ".json";
+	Serial.println("Surveying session STARTED!!\n");
+	Serial.println("Your file name is : " + String(fileName));
+	winflag6 = 1;
+	myFile = SD.open(fileName, FILE_WRITE);
+	if (myFile)
+	{
+		Serial.println("Succesfully created the file\n");
+	}
+	else
+	{
+		// if the file didn't open, print an error:
+		Serial.println("No file to open.....");
+	}
+	if (!SD.exists(fileName))
+		Serial.println("NO SUCH FILE FOUND");
+}
+
+void logJson()
+{
+	//starting logging JSON
+	Serial.println("Opening file for appendng new data!!");
+	myFile = SD.open(fileName, FILE_APPEND);
+	if (myFile)
+	{
+		Serial.println("File opened for appending new data");
+		myFile.println("{\nTime : " + String(gps.time.value()));
+		myFile.println("Date : " + String(gps.date.value()));
+		myFile.println("Latitude : " + String(gps.location.rawLat().deg));
+		myFile.println("Longitude : String(gps.location.rawLng().deg)");
+		myFile.println("Speed : " + String(gps.speed.kmph()));
+		myFile.println("Altitude : " + String(gps.altitude.meters()));
+		myFile.println("Sattelites : " + String(gps.satellites.value()));
+		myFile.println("HDOP : " + String(gps.hdop.value()));
+		myFile.println("Time : " + String(gps.time.value()) + "\n}");
+		myFile.println("!");
+		Serial.println("Data logged successfully...\n\n");
+		winflag4 = 1;
+		myFile.close();
+	}
+	else
+	{
+		Serial.println("\nPlease start a session before logging the data!!!");
+		winflag5 = 1;
+	}
+}
+
+String listDir(fs::FS &fs, const char *dirname, uint8_t levels)
+{
+	String files = "";
+
+	Serial.printf("Listing directory: %s\r\n", dirname);
+
+	File root = fs.open(dirname);
+	if (!root)
+	{
+		Serial.println("- failed to open directory");
+		return "failed to open directory";
+	}
+	if (!root.isDirectory())
+	{
+		//Serial.println(" - not a directory");
+		return "not a directory";
+		;
+	}
+
+	File file = root.openNextFile();
+	while (file)
+	{
+		if (file.isDirectory())
+		{
+			Serial.print("  DIR : ");
+			Serial.println(file.name());
+			if (levels)
+			{
+				listDir(fs, file.name(), levels - 1);
+			}
+		}
+		else
+		{
+			Serial.print("  FILE: ");
+			Serial.print(file.name());
+			files = String(files + file.name() + " ");
+		}
+		file = root.openNextFile();
+	}
+
+	return files;
+}
+
+void writeFile(fs::FS &fs, const char *path, const char *message)
+{
+	Serial.printf("Writing file: %s\r\n", path);
+
+	File file = fs.open(path, FILE_WRITE);
+	if (!file)
+	{
+		Serial.println("- failed to open file for writing");
+		return;
+	}
+	if (file.print(message))
+	{
+		Serial.println("- file written");
+	}
+	else
+	{
+		Serial.println("- write failed");
+	}
+	file.close();
+}
+
+void deleteFile(fs::FS &fs, String path)
+{
+	Serial.printf("Deleting file: %s\r\n", path);
+	if (fs.remove(path))
+	{
+		Serial.println("- file deleted");
+	}
+	else
+	{
+		Serial.println("- delete failed");
+	}
+}
+
+String IpAddress2String(const IPAddress &ipAddress)
+{
+	return String(ipAddress[0]) + String(".") +
+		   String(ipAddress[1]) + String(".") +
+		   String(ipAddress[2]) + String(".") +
+		   String(ipAddress[3]);
+}
+
+String SSID1, PASS, WiFiIp;
+
+String commandPallete(String command)
+{
+
+	int strIndex = 0;
+
+	if (command.length() > 0)
+	{
+		if (command.equals("$EZ_RTK|SET-MODE|ROVER"))
+		{
+			Serial.println("Thanks for using EZ_RTK, your RTK has been configured as a ROVER ");
+			command = "";
+			winflag9 = 1;
+		}
+		else if (command.equals("$EZ_RTK|SET-MODE|BASE"))
+		{
+			Serial.println("Thanks for using EZ_RTK, your RTK has been configured as a BASE");
+			command = "";
+			winflag8 = 1;
+		}
+		else if (command.startsWith("$EZ_RTK,SET-WIFI,", 0))
+		{
+			Serial.println("Command : " + command);
+			strIndex = command.lastIndexOf(',');
+			SSID1 = command.substring(17, strIndex);
+			PASS = command.substring(strIndex + 1);
+
+			Serial.println("SSID=" + SSID1);	//String value parsed
+			Serial.println("Password=" + PASS); //String value parsed
+
+			SSID1.toCharArray(ssid1, SSID1.length() + 1);
+			PASS.toCharArray(password1, PASS.length() + 1);
+
+			Serial.println("SSID again = " + SSID1);	//String value parsed
+			Serial.println("Password again =" + PASS); //String value parsed
+
+			Serial.println("Thanks for using EZ_RTK, your settings for Wifi has been configured as follows:\nSSID :" + String(ssid1) + "." + "\nPassword :" + String(password1) + ".");
+			Serial.println();
+			Serial.print("Connecting to ");
+			Serial.println("'" + String(ssid1) + "'");
+
+			if (WiFi.status() == WL_CONNECTED)
+			{
+				Serial.println("Wifi already connected");
+				WiFi.disconnect();
+				Serial.println("After disconnect: ");
+				Serial.println(WiFi.localIP());
+			}
+
+			WiFi.begin(ssid1, password1);
+
+			while (WiFi.status() != WL_CONNECTED)
+			{
+				WiFi.begin(ssid1, password1);
+				delay(1000);
+				timer++;
+				Serial.print(".");
+				if (timer == 10 && WiFi.status() != WL_CONNECTED)
+				{
+					Serial.println("\nTimeout no wifi connected!!\n\n");
+					timer = 0;
+					break;
+				}
+				if (WiFi.status() == WL_CONNECTED)
+				{
+					Serial.println("WiFi connection estabilished with " + String(ssid));
+					Serial.println("IP address: ");
+					Serial.println(WiFi.localIP());
+
+					WiFiIp = IpAddress2String(WiFi.localIP());
+					Serial.println("IP string: " + WiFiIp);
+
+					winflag10 = 1;
+
+					hostServer();
+					Serial.println("Server hosted");
+					Serial.println();
+				}
+			}
+			timer = 0;
+		}
+	}
+	return WiFiIp;
+}
+
+void setup()
+{
+	Serial.begin(115200);
+	Wire.begin();
+	display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+	MySerial.begin(9600, SERIAL_8N1, 16, 17); //rx,tx
+
+	//SD_Card_Setup();
+
+	WiFi.mode(WIFI_MODE_APSTA);
+	Serial.println("Setting AP However you can connect as Station as well…");
+
+	// Clear the buffer.
+	display.clearDisplay();
+
+	// Display Text
+	display.setTextSize(1);
+	display.setTextColor(WHITE);
+	display.setCursor(0, 20);
+	display.println("HELLO USER");
+	display.println("Welcome to the EZ-RTK");
+	display.display();
+	display.setTextColor(BLACK, WHITE);
+	display.print("   ");
+	display.display();
+	mpu6050.begin();
+	display.print("   ");
+	display.display();
+	mpu6050.calcGyroOffsets(true);
+
+	for (int i = 0; i < 3; i++)
+	{
+		display.setTextColor(BLACK, WHITE);
+		display.print("    ");
+		delay(1000);
+		display.display();
+	}
+	display.display();
+	display.setTextColor(WHITE);
+	display.clearDisplay();
+
+	// Hotspot
+	WiFi.softAP(ssid, password);
+	IPAddress IP = WiFi.softAPIP();
+	Serial.print("AP IP address: ");
+	Serial.println(IP);
+	hostServer();
+
+	button.attachDoubleClick(doubleclick); // link the function to be called on a doubleclick event.
+	button.attachClick(singleclick);	   // link the function to be called on a singleclick event.
+	button.attachLongPressStop(longclick);
+
+	if (!SD.begin(chipSelect))
+	{
+		Serial.println("Card Mount Failed!");
+		//return;
+	}
+	else
+	{
+		Serial.println("Card mounted successfully!");
+	}
+	uint8_t cardType = SD.cardType();
+
+	if (cardType == CARD_NONE)
+	{
+		Serial.println("No SD card attached");
+		return;
+	}
+	listDir(SD, "/", 0);
+
+	Serial.println();
+	Serial.println();
+}
+
+void loop()
+{
+	mpu6050.update();
+	button.tick();
+	delay(10);
+	parser();
+
+	// windows
+	if (flag == 0) //opens satellite window
+	{
+		window1();
+	}
+	if (flag == 1) //opens IMU window
+	{
+		window2();
+	}
+	if (flag == 2) //opens wifi configuration window
+	{
+		window3();
+	}
+	if (winflag4 == 1) //splashes "data logged"
+	{
+		window4();
+		delay(1000);
+		winflag4 = 0;
+	}
+	if (winflag5 == 1) //splashes "Please start a session before logging data"
+	{
+		window5();
+		delay(1000);
+		winflag5 = 0;
+	}
+	if (winflag6 == 1) //splashes "session started"
+	{
+		window6();
+		delay(1000);
+		winflag6 = 0;
+	}
+	if (winflag7 == 1) //splashes "session terminated"
+	{
+		window7();
+		delay(1000);
+		winflag7 = 0;
+	}
+	if (winflag8 == 1) //splashes "session terminated"
+	{
+		window8();
+		delay(1000);
+		winflag8 = 0;
+	}
+	if (winflag9 == 1) //splashes "session terminated"
+	{
+		window9();
+		delay(1000);
+		winflag9 = 0;
+	}
+	if (winflag10 == 1) //splashes "session terminated"
+	{
+		window10();
+		delay(1000);
+		winflag10 = 0;
+	}
+
+	//    Code for reading NMEA Data from PX or a simulator
+
+	if (MySerial.available())
+	{
+		char temp = MySerial.read();
+		unsigned long currentTime = millis();
+
+		if (currentTime - previousTime >= eventInterval)
+		{
+			if (ck == 0)
+			{
+				ck = 1;
+				globe = str0;
+				str0 = "";
+				//          Serial.print(globe);
+			}
+			else if (ck == 1)
+			{
+				ck = 0;
+				globe = str1;
+				str1 = "";
+				//          Serial.print(globe);
+			}
+			previousTime = currentTime;
+		}
+		else
+		{
+			if (ck == 0)
+			{
+				str0 += temp;
+			}
+			else
+			{
+				str1 += temp;
+			}
+		}
+	}
+}
+
+void window1()
+{
+	while (GPS.available() > 0)
+	{
+		gps.encode(GPS.read());
+	}
+	display.clearDisplay();
+	display.setCursor(0, 0);
+	display.setTextSize(1);
+	display.print(" ");
+	display.setTextSize(2);
+	display.println("SATELLITE");
+	display.setTextSize(1);
+	display.print("\n LATT : ");
+	display.println(gps.location.lat(), 6);
+	display.print(" LNGT : ");
+	display.println(gps.location.lng(), 6);
+	display.print(" TIME : ");
+	if (gps.time.hour() < 10)
+		display.print("0");
+	display.print(gps.time.hour());
+	display.print(":");
+	if (gps.time.minute() < 10)
+		display.print("0");
+	display.print(gps.time.minute());
+	display.print(":");
+	if (gps.time.second() < 10)
+		display.print("0");
+	display.println(gps.time.second());
+	display.print(" DATE : ");
+	display.print(gps.date.month());
+	display.print("/");
+	display.print(gps.date.day());
+	display.print("/");
+	display.println(gps.date.year());
+	//  display.println("SSID : Subliminal");
+	//  display.println("IP : 192.168.43.53");
+
+	display.display();
+}
+void window2()
+{
+	display.clearDisplay();
+	display.setCursor(0, 0);
+	display.setTextSize(2);
+	display.println("   IMU   ");
+	display.setTextSize(1);
+	display.print("\n    X : ");
+	display.println(mpu6050.getAngleX());
+	display.print("    Y : ");
+	display.println(mpu6050.getAngleY());
+	display.print("    Z : ");
+	display.println(mpu6050.getAngleX());
+	display.display();
+}
+void window3()
+{
+	display.clearDisplay();
+	display.setCursor(0, 0);
+	display.setTextSize(2);
+	display.println("   WIFI   ");
+	display.setTextSize(1);
+	display.print("\nHotspot : ");
+	display.println("ACTIVE");
+	display.print("SSID : ");
+	display.println(ssid1);
+	display.print("IP : ");
+	display.println(WiFi.localIP());
+
+	display.display();
+}
+void window4()
+{
+	display.clearDisplay();
+	display.setCursor(0, 20);
+	display.setTextSize(2);
+	display.println(" SUCCESS");
+	display.setTextSize(1);
+	display.print("\n   DATA LOGGED!");
+	display.display();
+}
+void window5()
+{
+	display.clearDisplay();
+	display.setCursor(0, 20);
+	display.setTextSize(1);
+	display.print("Please start session before logging data !");
+	display.display();
+}
+
+void window6()
+{
+	display.clearDisplay();
+	display.setCursor(0, 20);
+	display.setTextSize(1);
+	display.print("Surveying session\nSTARTED!");
+	display.display();
+}
+void window7()
+{
+	display.clearDisplay();
+	display.setCursor(0, 20);
+	display.setTextSize(1);
+	display.print("Surveying session\nTERMINATED!");
+	display.display();
+}
+void window8()
+{
+	display.clearDisplay();
+	display.setCursor(0, 14);
+	display.setTextSize(1);
+	display.println("  Configured as");
+	display.println("  BASE ");
+	display.display();
+}
+void window9()
+{
+	display.clearDisplay();
+	display.setCursor(0, 14);
+	display.setTextSize(1);
+	display.println("  Configured as");
+	display.println("  ROVER ");
+	display.display();
+}
+void window10()
+{
+	display.clearDisplay();
+	display.setCursor(0, 14);
+	display.setTextSize(1);
+	display.println(" Connected to");
+	display.println(ssid1);
+	display.display();
+}
+
+void SD_Card_Setup()
+{
+	while (!Serial)
+		;
+
+	Serial.println("Initializing SD card...");
+
+	if (!SD.begin(chipSelect))
+	{
+		Serial.println("SD card initialization failed. Things to check:");
+		Serial.println("1. is a card inserted?");
+		Serial.println("2. is your wiring correct?");
+		Serial.println("3. did you change the chipSelect pin to match your shield or module?");
+		Serial.println("Note: press reset or reopen this serial monitor after fixing your issue!");
+		while (true)
+			;
+	}
+	Serial.println("SD card initialised!");
+}
+
+void doubleclick() // what happens when button is double-pressed
+{
+	Serial.println("\n\nDouble click - Data to be logged");
+	ClickStatus = "DoubleClick";
+	logJson();
+	//winflag4=1;
+}
+
+void singleclick() // what happens when the button is clicked
+{
+	Serial.println("Single click - window to be changed");
+	//  ClickStatus="SingleClick";
+
+	flag++;
+	if (flag >= 3)
+	{
+		flag = 0;
+	}
+}
+
+void longclick() // what happens when button is long-pressed
+{
+	Serial.print("\n\nLong click - ");
+	ClickStatus = "LongClick";
+	SessionMode = !SessionMode;
+	if (SessionMode == 1)
+	{
+		createJsonFile();
+	}
+	if (SessionMode == 0)
+	{
+		if (SD.exists(fileName))
+		{
+			Serial.println("Surveying session TERMINATED\nYour data logged inside file : " + String(fileName));
+			fileName = "";
+			winflag7 = 1; ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		}
+		else
+		{
+
+			Serial.println("Surveying session Terminated \nNo file found.");
+		}
+	}
+}
+
+void parser()
+{
+	char c, d;
+	String command;
+
+	while (Serial.available())
+	{
+		c = Serial.read(); //gets one byte from serial buffer
+		command += c;	   //makes the String command
+		delay(8);		   //slow looping to allow buffer to fill with next character
+	}
+
+	commandPallete(command);
+}
+
+void hostServer()
+{
+	server.begin();
+
+	server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+		request->send(200, "text/plain", "ESP 32 web server");
+	});
+
+	server.on("/files", HTTP_GET, [](AsyncWebServerRequest *request) {
+		String files = listDir(SD, "/", 0); //list files in directory
+		request->send(200, "text/plain", files);
+	});
+
+	server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request) {
+		int fnsstart = request->url().lastIndexOf('/');
+		String fn = request->url().substring(fnsstart);
+		Serial.println("Download File: " + fn);
+		// ... and finally
+		request->send(SD, fn, String(), true);
+	});
+
+	server.on("/livedata", HTTP_GET, [](AsyncWebServerRequest *request) {
+		request->send(200, "text/plain", globe);
+	});
+
+	server.on("/delete", HTTP_GET, [](AsyncWebServerRequest *request) {
+		int fnsstart = request->url().lastIndexOf('/');
+		String fn = request->url().substring(fnsstart);
+		deleteFile(SD, fn);
+		String files = listDir(SD, "/", 0);
+		request->send(200, "text/plain", files); //send back remaining files
+	});
+
+	server.on("/command", HTTP_GET, [](AsyncWebServerRequest *request) {
+		int fnsstart = request->url().lastIndexOf('/');
+		String connect_command = request->url().substring(fnsstart + 1);
+		Serial.println("Got string:" + connect_command);
+		String IP = commandPallete(connect_command);
+		Serial.println("Got IP: " + IP);
+		request->send(200, "text/plain", IP);
+	});
+
+	server.on("/init", HTTP_GET, [](AsyncWebServerRequest *request) {
+		String response;
+		if (WiFi.status() == WL_CONNECTED)
+		{
+			//response = "{ \"exists\": \"true\", \"ssid\":\"" +String(SSID1)+ "\",\"ip\":\""+IpAddress2String(WiFi.localIP())+"\"}";
+			response = String(SSID1) + ":" + IpAddress2String(WiFi.localIP());
+		}
+		else
+		{
+			response = "none";
+		}
+		Serial.println("Sending: "+ response);
+		request->send(200, "text/plain", response);
+	});
+}
