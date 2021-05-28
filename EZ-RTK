@@ -1,3 +1,4 @@
+//libraries
 #include "FS.h"
 #include <WiFi.h>
 #include "ESPAsyncWebServer.h"
@@ -9,10 +10,9 @@
 #include <SPI.h>
 #include <SD.h>
 #include "OneButton.h"
-
-// For PX1122r
 #include <HardwareSerial.h>
 
+//type declarations
 #define chipSelect 5
 int i, SessionMode=0;
 String ClickStatus="";
@@ -28,19 +28,13 @@ const unsigned long eventInterval = 2000;
 unsigned long previousTime = 0;
 int ck = 0;
 String hotspotrecv="";
+int base=0;
+int rover=0;
 
+//objects declarations
 AsyncWebServer server(80);
-
-//// Set your Static IP address
-//IPAddress local_IP(192, 168, 5, 1);
-//// Set your Gateway IP address
-//IPAddress gateway(192, 168, 1, 1);
-//// Set your Subnet mask
-//IPAddress subnet(255, 255, 255, 0);
-
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 
-// Bitmap of MarilynMonroe Image
 const unsigned char MadeInINDIA [] PROGMEM = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -182,7 +176,8 @@ void logJson()
   }
 }
 
-String listDir(fs::FS &fs, const char * dirname, uint8_t levels){
+String listDir(fs::FS &fs, const char * dirname, uint8_t levels)
+{
     String files = "";
 
     Serial.printf("Listing directory: %s\r\n", dirname);
@@ -216,7 +211,8 @@ String listDir(fs::FS &fs, const char * dirname, uint8_t levels){
   return files;
 }
 
-void writeFile(fs::FS &fs, const char * path, const char * message){
+void writeFile(fs::FS &fs, const char * path, const char * message)
+{
     Serial.printf("Writing file: %s\r\n", path);
 
     File file = fs.open(path, FILE_WRITE);
@@ -232,7 +228,8 @@ void writeFile(fs::FS &fs, const char * path, const char * message){
     file.close();
 }
 
-void deleteFile(fs::FS &fs, String path){
+void deleteFile(fs::FS &fs, String path)
+{
     Serial.printf("Deleting file: %s\r\n", path);
     if(fs.remove(path)){
         Serial.println("- file deleted");
@@ -242,19 +239,13 @@ void deleteFile(fs::FS &fs, String path){
 }
 
 void setup() {
+  // put your setup code here, to run once:
   Serial.begin(115200);
-  Wire.begin();
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   display.clearDisplay();
 
-  
-  
-  GPS.begin(9600, SERIAL_8N1, 16, 17);//rx,tx
-  
-  SD_Card_Setup();
-
   WiFi.mode(WIFI_MODE_APSTA);
-  Serial.println("Setting AP However you can connect as Station as well…");
+
   // Display bitmap
   display.drawBitmap(0, 0,  MadeInINDIA, 128, 64, WHITE);
   display.display();
@@ -262,158 +253,216 @@ void setup() {
   // Clear the buffer.
   display.clearDisplay();
 
-  // Display Text
-  display.setTextSize(1);
-  display.setTextColor(WHITE);
-  display.setCursor(0,20);
-  display.println("HELLO USER");
-  display.println("Welcome to the EZ-RTK");
-  display.display();
-  display.setTextColor(BLACK, WHITE);
-  display.print("   ");
-  display.display(); 
-  mpu6050.begin();
-  display.print("   ");  
-  display.display(); 
-  mpu6050.calcGyroOffsets(true);
-     
-   for (int i=0; i<3; i++)
-   {
-   display.setTextColor(BLACK, WHITE);
-   display.print("    ");
-   delay(1000);
-   display.display();
-   }
-    display.display();
-    display.setTextColor(WHITE);
-  display.clearDisplay();
-  
   //Wifi hotspot
   WiFi.softAP(ssid, password);
   IPAddress IP = WiFi.softAPIP();
   Serial.print("AP IP address: ");
   Serial.println(IP);
   hostServer();
+
+  //waiting for command as base or rover
+  display.clearDisplay();
+  display.setCursor(0,14);
+  display.setTextSize(1);
+  display.println(" CONFIGURE ME");
+  display.println("        ROVER");
+  display.println("           or");
+  display.println("        BASE");
+  display.display();
+
+  //Checking commands
+  while (Serial.available()) 
+  {
+    c = Serial.read();  //gets one byte from serial buffer
+    command += c; //makes the String command
+    delay(8);  //slow looping to allow buffer to fill with next character
+  }
+  while (hotspotcmd==1)
+  {
+    command=hotspotrecv;
+    hotspotcmd=0;
+  }
+
+  if (command.length() > 0) 
+  {
+    Serial.println("."+command+".");
+    if(command.equals("$EZ_RTK|SET-MODE|ROVER\n")||command.equals("$EZ_RTK|SET-MODE|ROVER"))
+    {
+      Serial.println("Thanks for using EZ_RTK, your RTK has been configured as a ROVER ");
+      command="";
+      winflag8=1; //variable to wake the window in void loop
+      rover=1;
+    }
+    else if(command.equals("$EZ_RTK|SET-MODE|BASE\n")||command.equals("$EZ_RTK|SET-MODE|BASE"))
+    {
+      Serial.println("Thanks for using EZ_RTK, your RTK has been configured as a BASE");
+      command="";
+      base=1;
+    }
+  } 
+
+  if (rover==1)
+  {
+
+    display.setTextSize(1);
+    display.setTextColor(WHITE);
+    display.setCursor(0,20);
+    display.println("HELLO USER");
+    display.println("Setting up Rover");
+    display.display();
+    display.setTextColor(BLACK, WHITE);
+    display.print("   ");
+    display.display(); 
+    mpu6050.begin();
+    display.print("   ");  
+    display.display(); 
+    mpu6050.calcGyroOffsets(true);
+       
+    display.display();
+    display.setTextColor(WHITE);
+    display.clearDisplay();
+   
     
-  button.attachDoubleClick(doubleclick);            // link the function to be called on a doubleclick event.
-  button.attachClick(singleclick);                  // link the function to be called on a singleclick event.
-  button.attachLongPressStop(longclick);
+    button.attachDoubleClick(doubleclick);            // link the function to be called on a doubleclick event.
+    button.attachClick(singleclick);                  // link the function to be called on a singleclick event.
+    button.attachLongPressStop(longclick);
+    
   
-
-  if(!SD.begin(chipSelect))
-  {
-    Serial.println("Card Mount Failed!");
-    return;
-  }
-  else
-  {
-    Serial.println("Card mounted successfully!");
-  }
-  uint8_t cardType = SD.cardType();
+    if(!SD.begin(chipSelect))
+    {
+      Serial.println("Card Mount Failed!");
+      return;
+    }
+    else
+    {
+      Serial.println("Card mounted successfully!");
+    }
+    uint8_t cardType = SD.cardType();
+    
+    if(cardType == CARD_NONE)
+    {
+      Serial.println("No SD card attached");
+      return;
+    }
+    
+    listDir(SD, "/", 0);
   
-  if(cardType == CARD_NONE){
-    Serial.println("No SD card attached");
-    return;
-  }
-  listDir(SD, "/", 0);
+    Serial.println();
+    Serial.println();
+    }
 
-  Serial.println();
-  Serial.println();
+    
+    else if (base==1)
+    {
+      window9();
+    }
+
 }
 
-
-void loop()
+void loop() 
 {
-   mpu6050.update();
-   button.tick();
-   delay(10);
-   parser();
-// windows
-  if (flag==0)//opens satellite window
-  {
-    window1(); 
-  }
-  if (flag==1)//opens IMU window
-  {
-    window2();
-  }
-  if (flag==2)//opens wifi configuration window
-  {
-    window3();
-  }
-  if (winflag4==1)//splashes "data logged"
-  {
-    window4();
-    delay(1000);
-    winflag4=0;
-  }
-  if (winflag5==1)//splashes "Please start a session before logging data"
-  {
-    window5();
-    delay(1000);
-    winflag5=0;
-  }
-  if (winflag6==1)//splashes "session started"
-  {
-    window6();
-    delay(1000);
-    winflag6=0;
-  }
-  if (winflag7==1)//splashes "session terminated"
-  {
-    window7();
-    delay(1000);
-    winflag7=0;
-  }
-  if (winflag8==1)//splashes "session terminated"
-  {
-    window8();
-    delay(1000);
-    winflag8=0;
-  }
-  if (winflag9==1)//splashes "session terminated"
-  {
-    window9();
-    delay(1000);
-    winflag9=0;
-  }
-  if (winflag10==1)//splashes "session terminated"
-  {
-    window10();
-    delay(1000);
-    winflag10=0;
-  }
-//    Code for reading NMEA Data from PX or a simulator
   
-  if(GPS.available()){
-    char temp = GPS.read();
-    unsigned long currentTime = millis();
-
-    if(currentTime - previousTime >= eventInterval){
-        if(ck==0){
-          ck = 1;
-          globe = str0;
-          str0 = "";
-          //Serial.print(globe);
-        }
-        else if(ck==1){
-          ck = 0;
-          globe = str1;
-          str1 = "";
-          //Serial.print(globe);
-        }
-        previousTime = currentTime;
+  // put your main code here, to run repeatedly:
+  if (rover==1)
+  {
+     mpu6050.update();
+     button.tick();
+     delay(10);
+     parser();
+     
+  // windows
+    if (flag==0)//opens satellite window
+    {
+      window1(); 
     }
-    else{
-      if(ck == 0){
-        str0 += temp;  
+    if (flag==1)//opens IMU window
+    {
+      window2();
+    }
+    if (flag==2)//opens wifi configuration window
+    {
+      window3();
+    }
+    if (winflag4==1)//splashes "data logged"
+    {
+      window4();
+      delay(1000);
+      winflag4=0;
+    }
+    if (winflag5==1)//splashes "Please start a session before logging data"
+    {
+      window5();
+      delay(1000);
+      winflag5=0;
+    }
+    if (winflag6==1)//splashes "session started"
+    {
+      window6();
+      delay(1000);
+      winflag6=0;
+    }
+    if (winflag7==1)//splashes "session terminated"
+    {
+      window7();
+      delay(1000);
+      winflag7=0;
+    }
+    if (winflag8==1)//splashes "session terminated"
+    {
+      window8();
+      delay(1000);
+      winflag8=0;
+    }
+    if (winflag9==1)//splashes "session terminated"
+    {
+      window9();
+      delay(1000);
+      winflag9=0;
+    }
+    if (winflag10==1)//splashes "session terminated"
+    {
+      window10();
+      delay(1000);
+      winflag10=0;
+    }
+  //    Code for reading NMEA Data from PX or a simulator
+    
+    if(GPS.available())
+    {
+      char temp = GPS.read();
+      unsigned long currentTime = millis();
+  
+      if(currentTime - previousTime >= eventInterval){
+          if(ck==0){
+            ck = 1;
+            globe = str0;
+            str0 = "";
+            //Serial.print(globe);
+          }
+          else if(ck==1){
+            ck = 0;
+            globe = str1;
+            str1 = "";
+            //Serial.print(globe);
+          }
+          previousTime = currentTime;
       }
       else{
-        str1 += temp;  
+        if(ck == 0){
+          str0 += temp;  
+        }
+        else{
+          str1 += temp;  
+        }
       }
     }
   }
+  else if(base==1)
+  {
+    //LoRa.write(RTK.read());
+  }
 }
+
 void window1()
 {
   while(GPS.available() > 0)
@@ -611,6 +660,7 @@ void longclick()                                    // what happens when button 
     }
   }
 }
+
 void parser()
 {
   int strIndex=0;
@@ -634,20 +684,7 @@ void parser()
 
   if (command.length() > 0) 
   {
-    //Serial.println("."+command+".");
-    if(command.equals("$EZ_RTK|SET-MODE|ROVER\n")||command.equals("$EZ_RTK|SET-MODE|ROVER"))
-    {
-      Serial.println("Thanks for using EZ_RTK, your RTK has been configured as a ROVER ");
-      command="";
-      winflag8=1; //variable to wake the window in void loop
-    }
-    else if(command.equals("$EZ_RTK|SET-MODE|BASE\n")||command.equals("$EZ_RTK|SET-MODE|BASE"))
-    {
-      Serial.println("Thanks for using EZ_RTK, your RTK has been configured as a BASE");
-      command="";
-      winflag9=1;//variable to wake the window in void loop
-    }
-    else if(command.startsWith("$EZ_RTK|SET-WIFI|", 0))
+     if(command.startsWith("$EZ_RTK|SET-WIFI|", 0))
     {
       Serial.println("Command received from hotspot : "+command);
       strIndex=command.lastIndexOf('|');
@@ -706,6 +743,7 @@ void parser()
   }
 }
 
+//server
 void hostServer()
 {
    server.begin();
@@ -743,7 +781,6 @@ void hostServer()
   server.on("/command", HTTP_GET, [](AsyncWebServerRequest *request){
     int fnsstart = request->url().indexOf('$');
     hotspotrecv = request->url().substring(fnsstart, request->url().length());
-//    commandPallete(command);
     hotspotcmd=1;
     
     request->send(200, "text/plain", "ACK");  
