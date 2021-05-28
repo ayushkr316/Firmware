@@ -16,6 +16,7 @@
 #define chipSelect 5
 int i, SessionMode=0;
 String ClickStatus="";
+String command="";
 int timer=0;
 int randNum=0;
 char* ssid = "$EZ_RTK";
@@ -116,6 +117,7 @@ int winflag9=0;
 int winflag10=0;
 int hotspotcmd=0;
 
+
 File myFile;
 
 String fileName;
@@ -124,9 +126,12 @@ int fileValue=0;
 void hostServer();
 void SD_Card_Setup();
 void parser();
+void window9();
+void window11();
 
 void createJsonFile()
 {
+  
   //gps.encode(RTK.read());
   //fileName = filename.toString();//String(gps.time.value())+"_"+String(gps.date.value())+"_UTC_Time_zone.txt";
   fileName="/EZ_RTK_"+String(random(0,300))+".json";
@@ -247,9 +252,13 @@ void setup() {
   WiFi.mode(WIFI_MODE_APSTA);
 
   // Display bitmap
-  display.drawBitmap(0, 0,  MadeInINDIA, 128, 64, WHITE);
+  display.drawBitmap(0, 0,  MadeInINDIA, 128, 50, WHITE);
+  display.setCursor(0,55);
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.println("  WELCOME TO EZ_RTK");
   display.display();
-  delay(1300);
+  delay(5000);
   // Clear the buffer.
   display.clearDisplay();
 
@@ -261,103 +270,115 @@ void setup() {
   hostServer();
 
   //waiting for command as base or rover
-  display.clearDisplay();
-  display.setCursor(0,14);
-  display.setTextSize(1);
-  display.println(" CONFIGURE ME");
-  display.println("        ROVER");
-  display.println("           or");
-  display.println("        BASE");
-  display.display();
-
-  //Checking commands
-  while (Serial.available()) 
-  {
-    c = Serial.read();  //gets one byte from serial buffer
-    command += c; //makes the String command
-    delay(8);  //slow looping to allow buffer to fill with next character
-  }
-  while (hotspotcmd==1)
-  {
-    command=hotspotrecv;
-    hotspotcmd=0;
-  }
-
-  if (command.length() > 0) 
-  {
-    Serial.println("."+command+".");
-    if(command.equals("$EZ_RTK|SET-MODE|ROVER\n")||command.equals("$EZ_RTK|SET-MODE|ROVER"))
-    {
-      Serial.println("Thanks for using EZ_RTK, your RTK has been configured as a ROVER ");
-      command="";
-      winflag8=1; //variable to wake the window in void loop
-      rover=1;
-    }
-    else if(command.equals("$EZ_RTK|SET-MODE|BASE\n")||command.equals("$EZ_RTK|SET-MODE|BASE"))
-    {
-      Serial.println("Thanks for using EZ_RTK, your RTK has been configured as a BASE");
-      command="";
-      base=1;
-    }
-  } 
-
-  if (rover==1)
-  {
-
+    display.setCursor(0,0);
     display.setTextSize(1);
     display.setTextColor(WHITE);
-    display.setCursor(0,20);
-    display.println("HELLO USER");
-    display.println("Setting up Rover");
+    display.println("\n      SET ME AS\n\n");
+    display.setTextSize(2);
+   // display.startscrollright(0x00, 0x00);
+    display.println("BASE/ROVER");
     display.display();
-    display.setTextColor(BLACK, WHITE);
-    display.print("   ");
-    display.display(); 
-    mpu6050.begin();
-    display.print("   ");  
-    display.display(); 
-    mpu6050.calcGyroOffsets(true);
-       
-    display.display();
-    display.setTextColor(WHITE);
-    display.clearDisplay();
-   
     
-    button.attachDoubleClick(doubleclick);            // link the function to be called on a doubleclick event.
-    button.attachClick(singleclick);                  // link the function to be called on a singleclick event.
-    button.attachLongPressStop(longclick);
-    
+  while(1)
+  {
+        
+    //Checking commands
+    while (Serial.available()) 
+    {
+      char c = Serial.read();  //gets one byte from serial buffer
+      command += c; //makes the String command
+      delay(8);  //slow looping to allow buffer to fill with next character
+    }
+    if (hotspotcmd==1)
+    {
+      command=hotspotrecv;
+      hotspotcmd=0;
+    }
   
-    if(!SD.begin(chipSelect))
+    if (command.length() > 0) 
     {
-      Serial.println("Card Mount Failed!");
-      return;
-    }
-    else
+      Serial.println("."+command+".");
+      if(command.equals("$EZ_RTK|SET-MODE|ROVER\n")||command.equals("$EZ_RTK|SET-MODE|ROVER"))
+      {
+        Serial.println("Thanks for using EZ_RTK, your RTK has been configured as a ROVER ");
+        command="";
+        rover=1;
+        break;
+      }
+      else if(command.equals("$EZ_RTK|SET-MODE|BASE\n")||command.equals("$EZ_RTK|SET-MODE|BASE"))
+      {
+        Serial.println("Thanks for using EZ_RTK, your RTK has been configured as a BASE");
+        command="";
+        window9();
+        base=1;
+        break;
+      }
+      else
     {
-      Serial.println("Card mounted successfully!");
+      Serial.println("Please check your command : "+command);
     }
-    uint8_t cardType = SD.cardType();
+    }
     
-    if(cardType == CARD_NONE)
-    {
-      Serial.println("No SD card attached");
-      return;
-    }
-    
-    listDir(SD, "/", 0);
+  } 
   
-    Serial.println();
-    Serial.println();
-    }
-
-    
-    else if (base==1)
+    if (rover==1)
     {
-      window9();
-    }
+      display.setTextSize(1);
+      display.setTextColor(WHITE);
+      display.setCursor(0,20);
+      
+      mpu6050.begin();
+      display.println("HELLO USER");
+      display.println("Setting up Rover");
+      display.display();
+      display.setTextColor(BLACK, WHITE);
+      display.print("   ");
+      display.display();
+      
+      mpu6050.calcGyroOffsets(true);
+      display.print("   ");  
+      display.display();
+         
+      
+      display.setTextColor(WHITE);
+      display.clearDisplay();
+     
+      
+      button.attachDoubleClick(doubleclick);            // link the function to be called on a doubleclick event.
+      button.attachClick(singleclick);                  // link the function to be called on a singleclick event.
+      button.attachLongPressStop(longclick);
+      
+    
+      if(!SD.begin(chipSelect))
+      {
+        Serial.println("Card Mount Failed!");
+        return;
+      }
+      else
+      {
+        Serial.println("Card mounted successfully!");
+      }
+      uint8_t cardType = SD.cardType();
+      
+      if(cardType == CARD_NONE)
+      {
+        Serial.println("No SD card attached");
+        return;
+      }
+      
+      listDir(SD, "/", 0);
+    
+      Serial.println();
+      Serial.println();
+      }
+  
+      
+      else if (base==1)
+      {
+        window9();
+      }
+  }
 
-}
 
 void loop() 
 {
@@ -413,12 +434,12 @@ void loop()
       delay(1000);
       winflag8=0;
     }
-    if (winflag9==1)//splashes "session terminated"
-    {
-      window9();
-      delay(1000);
-      winflag9=0;
-    }
+//    if (winflag9==1)//splashes "BASE CONFIGURED"
+//    {
+//      window9();
+//      delay(1000);
+//      winflag9=0;
+//    }
     if (winflag10==1)//splashes "session terminated"
     {
       window10();
@@ -460,6 +481,7 @@ void loop()
   else if(base==1)
   {
     //LoRa.write(RTK.read());
+    window9();
   }
 }
 
@@ -592,7 +614,18 @@ void window10()
   display.setCursor(0,14);
   display.setTextSize(1);
   display.println(" Connected to");
-  display.println(ssid1);
+  display.println("  ");
+  display.print(ssid1);
+  display.display();
+}
+
+void window11()
+{
+  display.clearDisplay();
+  display.setCursor(0,14);
+  display.setTextSize(1);
+  display.println(" Send commands");
+  display.println(" BASE OR ROVER");
   display.display();
 }
 
