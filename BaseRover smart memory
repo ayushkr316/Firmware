@@ -868,3 +868,11 @@ void GNSScomm()
     RTK.write(Serial.read());
   }
 }
+/*
+void binaryProtocolSuccess() //way to transfer binary command via ourself using microcontroller demonstrated by esprtk
+{
+  const int Len = 12;
+  uint8_t Buf [Len] = {0xA0, 0XA1,0x00, 0x05, ...., 0x0D, 0x0A};
+  Serial_PX.write (Buf, Len);
+}
+*/
