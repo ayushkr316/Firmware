@@ -9,29 +9,52 @@
 #include <SPI.h>
 #include <SD.h>
 #include "OneButton.h"
-
-// For PX1122r
 #include <HardwareSerial.h>
 
-#define chipSelect 5
+//integer type
 int i, SessionMode=0;
-String ClickStatus="";
 int timer=0;
 int randNum=0;
+int ck = 0;
+int flag =0; 
+int winflag4=0;
+int winflag5=0;
+int winflag6=0;
+int winflag7=0;
+int winflag8=0;
+int winflag9=0;
+int winflag10=0;
+int hotspotcmd=0;
+int gnssflag=0;
+int fileValue=0;
+
+//string type variables
+String ClickStatus="";
+String globe = "Error: PX1122R Module not connected.";
+String str0,str1;
+String hotspotrecv="";
+String fileName;
+
+//character type variable
 char* ssid = "$EZ_RTK";
 char* password = "1234567890";
 char ssid1[30], password1[30];
 
+//other variables
 bool Mode=true;
-String globe = "Error: PX1122R Module not connected.";
-String str0,str1;
+#define chipSelect 5
 const unsigned long eventInterval = 2000;
 unsigned long previousTime = 0;
-int ck = 0;
-String hotspotrecv="";
 
-
+//objects declaration
 AsyncWebServer server(80);
+MPU6050 mpu6050(Wire);
+HardwareSerial RTK(1);
+HardwareSerial LoRa(2);
+TinyGPSPlus gps;
+OneButton button(15, true);
+File myFile;
+Adafruit_SSD1306 display(128, 64, &Wire, -1);
 
 //// Set your Static IP address
 //IPAddress local_IP(192, 168, 5, 1);
@@ -40,9 +63,19 @@ AsyncWebServer server(80);
 //// Set your Subnet mask
 //IPAddress subnet(255, 255, 255, 0);
 
-Adafruit_SSD1306 display(128, 64, &Wire, -1);
+//predeclaration of important functions
+void hostServer();
+void SD_Card_Setup();
+void parser();
+int readMode();
+void writeMode(int);
+void RoverSetup();
+void BaseSetup();
+void RoverMain();
+void BaseMain();
+void GNSScomm();
 
-// Bitmap of MarilynMonroe Image
+// Bitmap of splash Image
 const unsigned char MadeInINDIA [] PROGMEM = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -110,38 +143,6 @@ const unsigned char MadeInINDIA [] PROGMEM = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
-MPU6050 mpu6050(Wire);
-HardwareSerial RTK(1);
-HardwareSerial LoRa(2);
-TinyGPSPlus gps;
-OneButton button(15, true);
-int flag =0; 
-int winflag4=0;
-int winflag5=0;
-int winflag6=0;
-int winflag7=0;
-int winflag8=0;
-int winflag9=0;
-int winflag10=0;
-int hotspotcmd=0;
-int gnssflag=0;
-
-File myFile;
-
-String fileName;
-int fileValue=0;
-
-void hostServer();
-void SD_Card_Setup();
-void parser();
-int readMode();
-void writeMode(int);
-void RoverSetup();
-void BaseSetup();
-void RoverMain();
-void BaseMain();
-void GNSScomm();
-
 void createJsonFile()
 {
   //gps.encode(RTK.read());
@@ -178,7 +179,7 @@ void logJson()
     myFile.println ("Longitude : "+String(gps.location.rawLng().deg));
     myFile.println ("Speed : "+String(gps.speed.kmph()));
     myFile.println ("Altitude : "+String(gps.altitude.meters()));
-    myFile.println ("Sattelites : "+ String(gps.satellites.value()));
+    myFile.println ("Sattelites : "+String(gps.satellites.value()));
     myFile.println ("HDOP : "+String(gps.hdop.value()));
     myFile.println ("Time : "+String(gps.time.value())+"\n}");
     myFile.println("!");
@@ -362,6 +363,7 @@ void window1() //sattelite window
   
   display.display();
 }
+
 void window2() //IMU  window
 {
   display.clearDisplay();
