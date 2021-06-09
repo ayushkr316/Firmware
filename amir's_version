@@ -10,8 +10,14 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <TinyGPS++.h>
-
 #define chipSelect 5
+
+#include "SPIFFS.h"
+#define FORMAT_SPIFFS_IF_FAILED true
+
+#include <ctime>
+#include <cstdlib>
+
 int i, SessionMode = 0;
 String ClickStatus = "";
 int timer = 0;
@@ -143,7 +149,7 @@ String listDir(fs::FS &fs, const char *dirname, uint8_t levels)
 		}
 		file = root.openNextFile();
 	}
-
+  Serial.println(files);
 	return files;
 }
 
@@ -283,6 +289,11 @@ void setup()
 	MySerial.begin(9600, SERIAL_8N1, 16, 17); //rx,tx
 
 	//SD_Card_Setup();
+  if(!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)){
+    Serial.println("SPIFFS Mount Failed");
+    return;
+  }
+  listDir(SPIFFS, "/", 0);
 
 	WiFi.mode(WIFI_MODE_APSTA);
 	Serial.println("Setting AP However you can connect as Station as well…");
@@ -343,7 +354,6 @@ void setup()
 		Serial.println("No SD card attached");
 		return;
 	}
-	listDir(SD, "/", 0);
 
 	Serial.println();
 	Serial.println();
@@ -674,7 +684,7 @@ void hostServer()
 	});
 
 	server.on("/files", HTTP_GET, [](AsyncWebServerRequest *request) {
-		String files = listDir(SD, "/", 0); //list files in directory
+		String files = listDir(SPIFFS, "/", 0); //list files in directory
 		request->send(200, "text/plain", files);
 	});
 
@@ -683,10 +693,15 @@ void hostServer()
 		String fn = request->url().substring(fnsstart);
 		Serial.println("Download File: " + fn);
 		// ... and finally
-		request->send(SD, fn, String(), true);
+		request->send(SPIFFS, fn, String(), true);
 	});
 
 	server.on("/livedata", HTTP_GET, [](AsyncWebServerRequest *request) {
+		srand(time(0));
+		int lat = (rand() % 50) + 1;
+		int lon = (rand() % 50) + 2;
+		String globe = "$GPRMC,144326.00,A," + String(lat) + ",N," + String(lon) + ",W,0.080,323.3,210307,0.0,E,A*20";
+		Serial.println(globe);
 		request->send(200, "text/plain", globe);
 	});
 
