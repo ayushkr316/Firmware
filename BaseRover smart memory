@@ -27,6 +27,7 @@ int winflag10=0;
 int hotspotcmd=0;
 int gnssflag=0;
 int fileValue=0;
+int ipReturned = 0;
 
 //string type variables
 String ClickStatus="";
@@ -34,6 +35,7 @@ String globe = "Error: PX1122R Module not connected.";
 String str0,str1;
 String hotspotrecv="";
 String fileName;
+String WiFiIp = "";
 
 //character type variable
 char* ssid = "$EZ_RTK";
@@ -253,6 +255,72 @@ void deleteFile(fs::FS &fs, String path){
     }
 }
 
+String commandPallete(String command){
+  int strIndex=0;
+  String SSID1, PASS;
+
+  
+  
+  if(command.startsWith("$EZ_RTK,SET-WIFI,", 0))
+  {
+    Serial.println("Command received from hotspot : "+command);
+    strIndex=command.lastIndexOf(',');
+    SSID1=command.substring(17, strIndex);
+    PASS=command.substring(strIndex+1);
+    Serial.println("SSID="+SSID1);//String value parsed
+    Serial.println("Password="+PASS);//String value parsed
+   // SSID1.toCharArray(ssid, SSID1.length()+1);
+    //ssid[]=SSID1;
+    //password[]=Password;
+    
+    SSID1.toCharArray(ssid1, SSID1.length()+1);
+    PASS.toCharArray(password1, PASS.length()+1);
+      //SSID and Password broken into character array from string and then printed below
+    
+    Serial.println("Thanks for using EZ_RTK, your settings for Wifi has been configured as follows:\nSSID :"+String(ssid1)+"."+"\nPassword :"+String(password1)+".");
+    Serial.println();
+    Serial.print("Connecting to ");
+    Serial.println("'"+String(ssid1)+"'");
+    if (WiFi.status() == WL_CONNECTED)
+    {
+      Serial.println("Wifi already connected");
+      WiFi.disconnect();
+    }
+//    WiFi.begin(ssid1, password1);
+    while (WiFi.status() != WL_CONNECTED) 
+    {
+      WiFi.begin(ssid1, password1);
+        delay(1000);
+        timer++;
+        Serial.print(".");
+        if (timer==20 && WiFi.status() != WL_CONNECTED)  //try reconnecting wifi for consecutively 10 attempts, 10 seconds in total
+        {
+          Serial.println("\nTimeout no wifi connected!!\n\n");
+          timer=0;
+          break;
+        }
+    }
+    
+    if (WiFi.status() == WL_CONNECTED)
+    {
+      Serial.println("WiFi connection estabilished with "+String(ssid1));
+      Serial.print("IP Address : ");
+      Serial.println(WiFi.localIP());
+
+      WiFiIp = IpAddress2String(WiFi.localIP());
+      ipReturned = 1;
+      
+      winflag10=1;  //variable to wake the window in void loop
+      
+      hostServer();
+      Serial.println("Server hosted");
+      Serial.println();
+    }
+    command="";
+    return WiFiIp;
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   Wire.begin();
@@ -318,12 +386,20 @@ void loop()
   else if(readMode()==0) //checking value returned from SD card
   BaseMain();   
   parser();
-  if (gnssflag=1) //keep it flashing if the command is expected to be recieved from GNSS viewer
-  {
-    window11();
-    delay(1000);
-    display.clearDisplay();    
-  }
+//  if (gnssflag==1) //keep it flashing if the command is expected to be recieved from GNSS viewer
+//  {
+//    window11();
+//    delay(1000);
+//    display.clearDisplay();    
+//  }
+}
+
+String IpAddress2String(const IPAddress& ipAddress)
+{
+  return String(ipAddress[0]) + String(".") +
+         String(ipAddress[1]) + String(".") +
+         String(ipAddress[2]) + String(".") +
+         String(ipAddress[3]);
 }
 
 void window1() //sattelite window
@@ -564,10 +640,10 @@ void longclick()                                    // what happens when button 
 }
 void parser()
 {
-  int strIndex=0;
-  String SSID1, PASS;
-  //char ssid[30],c,d;
-  //char password[30];
+//  int strIndex=0;
+//  String SSID1, PASS;
+//  char ssid[30],d;
+//  char password[30];
   char c;
   String command;
 
@@ -586,15 +662,16 @@ void parser()
   if (command.length() > 0) 
   {
     //Serial.println("."+command+".");
-    if(command.equals("$EZ_RTK|SET-MODE|ROVER\n")||command.equals("$EZ_RTK|SET-MODE|ROVER"))
+    if(command.equals("$EZ_RTK,SET-MODE,ROVER\n") || command.equals("$EZ_RTK,SET-MODE,ROVER"))
     {
       RoverSetup();
       writeMode(1);
       Serial.println("Thanks for using EZ_RTK, your RTK has been configured as a ROVER ");
       command="";
-      
+
     }
-    else if(command.equals("$EZ_RTK|SET-MODE|BASE\n")||command.equals("$EZ_RTK|SET-MODE|BASE"))
+    
+    else if(command.equals("$EZ_RTK,SET-MODE,BASE\n") || command.equals("$EZ_RTK,SET-MODE,BASE"))
     {
       Serial.println("Thanks for using EZ_RTK, your RTK has been configured as a BASE");
       command="";
@@ -603,78 +680,29 @@ void parser()
       BaseSetup();
       //RTK.write(buffbase, lenbase);
     }
-    if(command.startsWith("$EZ_RTK|SET-WIFI|", 0))
-    {
-      Serial.println("Command received from hotspot : "+command);
-      strIndex=command.lastIndexOf('|');
-      SSID1=command.substring(17, strIndex);
-      PASS=command.substring(strIndex+1);
-      Serial.println("SSID="+SSID1);//String value parsed
-      Serial.println("Password="+PASS);//String value parsed
-     // SSID1.toCharArray(ssid, SSID1.length()+1);
-      //ssid[]=SSID1;
-      //password[]=Password;
-      
-      SSID1.toCharArray(ssid1, SSID1.length()+1);
-      PASS.toCharArray(password1, PASS.length());
-        //SSID and Password broken into character array from string and then printed below
-      
-      Serial.println("Thanks for using EZ_RTK, your settings for Wifi has been configured as follows:\nSSID :"+String(ssid1)+"."+"\nPassword :"+String(password1)+".");
-      Serial.println();
-      Serial.print("Connecting to ");
-      Serial.println("'"+String(ssid1)+"'");
-      if (WiFi.status() == WL_CONNECTED)
-      {
-        Serial.println("Wifi already connected");
-      }
-      WiFi.begin(ssid1, password1);
-      while (WiFi.status() != WL_CONNECTED) 
-        {
-          WiFi.begin(ssid1, password1);
-            delay(1000);
-            timer++;
-            Serial.print(".");
-            if (timer==10&&WiFi.status() != WL_CONNECTED)  //try reconnecting wifi for consecutively 10 attempts, 10 seconds in total
-            {
-              Serial.println("\nTimeout no wifi connected!!\n\n");
-              timer=0;
-              break;
-            }
-            if (WiFi.status() == WL_CONNECTED)
-            {
-              Serial.println("WiFi connection estabilished with "+String(ssid1));
-              Serial.print("IP Address : ");
-              Serial.println(WiFi.localIP());
-              winflag10=1;  //variable to wake the window in void loop
-              hostServer();
-              Serial.println("Server hosted");
-              Serial.println();
-            }
-        }
-      
-      command="";
-    }
-    else
-    {
-      Serial.println("Please check your command : "+command);
-    }
-   if(command.equals("$EZ_RTK|GNSS-VIEWER|RTKCOMMAND\n")||command.equals("$EZ_RTK|GNSS-VIEWER|RTKCOMMAND"))
+    
+    
+    else if(command.equals("$EZ_RTK,GNSS-VIEWER,RTKCOMMAND\n") || command.equals("$EZ_RTK,GNSS-VIEWER,RTKCOMMAND"))
     {
       
       Serial.println("CLOSE THE SOFTWARE AND CONNECT PORT AT 115200 BAUD IN GNSS VIEWER TO CONFIGURE RTK");
       command="";
-      gnssflag=1;
+      gnssflag =!gnssflag;
       
       //RTK.write(buffrover, lenrover);
       GNSScomm(); //transfers gnss viewer command to 
     } 
+    else
+    {
+      Serial.println("Please check your command : "+command);
+    }
   }
 }
 
 void hostServer()
 {
    server.begin();
-      server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
     {
         request->send(200, "text/plain", "ESP 32 web server");
     });
@@ -708,10 +736,42 @@ void hostServer()
   server.on("/command", HTTP_GET, [](AsyncWebServerRequest *request){
     int fnsstart = request->url().indexOf('$');
     hotspotrecv = request->url().substring(fnsstart, request->url().length());
-//    commandPallete(command);
+
     hotspotcmd=1;
+    Serial.println("ipReturned = "+String(ipReturned));
     
-    request->send(200, "text/plain", "ACK");  
+    request->send(200, "text/plain", WiFiIp);
+    WiFiIp = "";    
+  });
+
+  server.on("/connect", HTTP_GET, [](AsyncWebServerRequest *request){
+    int fnsstart = request->url().indexOf('$');
+    hotspotrecv = request->url().substring(fnsstart, request->url().length());
+    WiFiIp = commandPallete(hotspotrecv);
+    
+    Serial.println("ipReturned = "+String(ipReturned));
+    
+    while(ipReturned == 1){
+      ipReturned = 0;
+      Serial.println("got ip: "+WiFiIp);
+      request->send(200, "text/plain", WiFiIp);
+      WiFiIp = "";    
+    }
+  });
+
+  server.on("/init", HTTP_GET, [](AsyncWebServerRequest *request) {
+    String response;
+    if (WiFi.status() == WL_CONNECTED)
+    {
+      //response = "{ \"exists\": \"true\", \"ssid\":\"" +String(SSID1)+ "\",\"ip\":\""+IpAddress2String(WiFi.localIP())+"\"}";
+      response = String(SSID1) + ":" + IpAddress2String(WiFi.localIP());
+    }
+    else
+    {
+      response = "none";
+    }
+    Serial.println("Sending: "+ response);
+    request->send(200, "text/plain", response);
   });
 
   server.on("/livedata", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -862,10 +922,11 @@ void BaseMain()
 
 void GNSScomm()
 {
-  while(Serial.available() > 0)
+  while(gnssflag==1)
   {
-    if(gnssflag==1) gnssflag=0;
-    RTK.write(Serial.read());
+    if(Serial.available() > 0){
+      RTK.write(Serial.read());  
+    }
   }
 }
 /*
