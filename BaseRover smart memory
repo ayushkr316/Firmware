@@ -764,7 +764,7 @@ void hostServer()
     if (WiFi.status() == WL_CONNECTED)
     {
       //response = "{ \"exists\": \"true\", \"ssid\":\"" +String(SSID1)+ "\",\"ip\":\""+IpAddress2String(WiFi.localIP())+"\"}";
-      response = String(SSID1) + ":" + IpAddress2String(WiFi.localIP());
+      response = String(ssid1) + ":" + IpAddress2String(WiFi.localIP());
     }
     else
     {
