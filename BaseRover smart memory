@@ -32,7 +32,8 @@ int ipReturned = 0;
 //string type variables
 String ClickStatus="";
 String globe = "Error: PX1122R Module not connected.";
-String str0,str1;
+String str0="";
+String str1="";
 String hotspotrecv="";
 String fileName;
 String WiFiIp = "";
@@ -57,13 +58,6 @@ TinyGPSPlus gps;
 OneButton button(15, true);
 File myFile;
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
-
-//// Set your Static IP address
-//IPAddress local_IP(192, 168, 5, 1);
-//// Set your Gateway IP address
-//IPAddress gateway(192, 168, 1, 1);
-//// Set your Subnet mask
-//IPAddress subnet(255, 255, 255, 0);
 
 //predeclaration of important functions
 void hostServer();
@@ -153,16 +147,20 @@ void createJsonFile()
   Serial.println("Surveying session STARTED!!\n");
   Serial.println("Your file name is : "+String(fileName));
   winflag6=1;  //variable to wake the window in for loop
+  
   myFile = SD.open(fileName, FILE_WRITE);
+  
   if (myFile) 
   {
     Serial.println("Succesfully created the file\n");
   } 
+  
   else 
   {
     // if the file didn't open, print an error:
     Serial.println("No file to open.....");
   }
+  
   if (!SD.exists(fileName))
     Serial.println("NO SUCH FILE FOUND");
 }
@@ -171,7 +169,9 @@ void logJson()
 {
   //starting logging JSON
   Serial.println("Opening file for appendng new data!!");
+  
   myFile = SD.open(fileName,FILE_APPEND);
+  
   if(myFile)
   {
     Serial.println("File opened for appending new data");
@@ -255,11 +255,17 @@ void deleteFile(fs::FS &fs, String path){
     }
 }
 
+String IpAddress2String(const IPAddress& ipAddress)
+{
+  return String(ipAddress[0]) + String(".") +
+         String(ipAddress[1]) + String(".") +
+         String(ipAddress[2]) + String(".") +
+         String(ipAddress[3]);
+}
+
 String commandPallete(String command){
   int strIndex=0;
   String SSID1, PASS;
-
-  
   
   if(command.startsWith("$EZ_RTK,SET-WIFI,", 0))
   {
@@ -267,33 +273,33 @@ String commandPallete(String command){
     strIndex=command.lastIndexOf(',');
     SSID1=command.substring(17, strIndex);
     PASS=command.substring(strIndex+1);
+    
     Serial.println("SSID="+SSID1);//String value parsed
     Serial.println("Password="+PASS);//String value parsed
-   // SSID1.toCharArray(ssid, SSID1.length()+1);
-    //ssid[]=SSID1;
-    //password[]=Password;
     
     SSID1.toCharArray(ssid1, SSID1.length()+1);
     PASS.toCharArray(password1, PASS.length()+1);
-      //SSID and Password broken into character array from string and then printed below
+
+    //SSID and Password broken into character array from string and then printed below
     
     Serial.println("Thanks for using EZ_RTK, your settings for Wifi has been configured as follows:\nSSID :"+String(ssid1)+"."+"\nPassword :"+String(password1)+".");
     Serial.println();
     Serial.print("Connecting to ");
     Serial.println("'"+String(ssid1)+"'");
+    
     if (WiFi.status() == WL_CONNECTED)
     {
       Serial.println("Wifi already connected");
       WiFi.disconnect();
     }
-//    WiFi.begin(ssid1, password1);
+
     while (WiFi.status() != WL_CONNECTED) 
     {
       WiFi.begin(ssid1, password1);
         delay(1000);
         timer++;
         Serial.print(".");
-        if (timer==20 && WiFi.status() != WL_CONNECTED)  //try reconnecting wifi for consecutively 10 attempts, 10 seconds in total
+        if (timer==15 && WiFi.status() != WL_CONNECTED)  //try reconnecting wifi for consecutively 10 attempts, 10 seconds in total
         {
           Serial.println("\nTimeout no wifi connected!!\n\n");
           timer=0;
@@ -319,6 +325,9 @@ String commandPallete(String command){
     command="";
     return WiFiIp;
   }
+  else{
+    Serial.println("Invalid command. Please Check your command : "+command);
+  }
 }
 
 void setup() {
@@ -329,6 +338,7 @@ void setup() {
 
   WiFi.mode(WIFI_MODE_APSTA);
   Serial.println("Setting AP However you can connect as Station as well…");
+  
   // Display bitmap
 
   display.drawBitmap(0, 0,  MadeInINDIA, 128, 50, WHITE);
@@ -340,8 +350,8 @@ void setup() {
   button.attachClick(singleclick);                  // link the function to be called on a singleclick event.
   button.attachLongPressStop(longclick);
 
-  // Display Text
-//  display.clearDisplay();  
+// Display Text
+
   display.setTextSize(1);
   display.setTextColor(WHITE);
   display.setCursor(0,55);
@@ -353,17 +363,19 @@ void setup() {
   display.print("   ");  
   display.display(); 
   mpu6050.calcGyroOffsets(true);
-   SD_Card_Setup();
-   for (int i=0; i<3; i++)
-   {
-     display.setTextColor(BLACK, WHITE);
-     display.print("    ");
-     delay(1000);
-     display.display();
-   }
+  SD_Card_Setup();
+  
+  for (int i=0; i<3; i++)
+  {
+    display.setTextColor(BLACK, WHITE);
+    display.print("    ");
+    delay(1000);
     display.display();
-    display.setTextColor(WHITE);
-    display.clearDisplay();
+  }
+  
+  display.display();
+  display.setTextColor(WHITE);
+  display.clearDisplay();
   
   //Wifi hotspot
   WiFi.softAP(ssid, password);
@@ -372,10 +384,11 @@ void setup() {
   Serial.println(IP);
   hostServer();
   Serial.println("DEVICE MODE : "+String(readMode())+".");
+  
   if (readMode()==true)
-  RoverSetup();
+    RoverSetup();
   else if(readMode()==false)
-  BaseSetup();
+    BaseSetup();
 }
 
 
@@ -394,20 +407,13 @@ void loop()
 //  }
 }
 
-String IpAddress2String(const IPAddress& ipAddress)
-{
-  return String(ipAddress[0]) + String(".") +
-         String(ipAddress[1]) + String(".") +
-         String(ipAddress[2]) + String(".") +
-         String(ipAddress[3]);
-}
-
 void window1() //sattelite window
 {
   while(RTK.available() > 0)
   {
    gps.encode(RTK.read());
   }
+  
   display.clearDisplay();
   display.setCursor(0,0);
   display.setTextSize(1);
@@ -434,9 +440,6 @@ void window1() //sattelite window
   display.print(gps.date.day());
   display.print("/");
   display.println(gps.date.year());
-//  display.println("SSID : Subliminal");
-//  display.println("IP : 192.168.43.53");
-  
   display.display();
 }
 
@@ -600,13 +603,11 @@ void doubleclick()                                  // what happens when button 
  Serial.println("\n\nDouble click - Data to be logged"); 
  ClickStatus="DoubleClick";
  logJson();
- //winflag4=1;                            
 } 
  
 void singleclick()                                  // what happens when the button is clicked
 {                                 
   Serial.println("Single click - window to be changed");
-//  ClickStatus="SingleClick";
 
   flag++;
   if (flag>=3)
@@ -640,10 +641,6 @@ void longclick()                                    // what happens when button 
 }
 void parser()
 {
-//  int strIndex=0;
-//  String SSID1, PASS;
-//  char ssid[30],d;
-//  char password[30];
   char c;
   String command;
 
@@ -661,7 +658,6 @@ void parser()
 
   if (command.length() > 0) 
   {
-    //Serial.println("."+command+".");
     if(command.equals("$EZ_RTK,SET-MODE,ROVER\n") || command.equals("$EZ_RTK,SET-MODE,ROVER"))
     {
       RoverSetup();
@@ -681,7 +677,6 @@ void parser()
       //RTK.write(buffbase, lenbase);
     }
     
-    
     else if(command.equals("$EZ_RTK,GNSS-VIEWER,RTKCOMMAND\n") || command.equals("$EZ_RTK,GNSS-VIEWER,RTKCOMMAND"))
     {
       
@@ -689,49 +684,80 @@ void parser()
       command="";
       gnssflag =!gnssflag;
       
-      //RTK.write(buffrover, lenrover);
       GNSScomm(); //transfers gnss viewer command to 
     } 
     else
     {
-      Serial.println("Please check your command : "+command);
+      Serial.println("Invalid command. Please Check your command : "+command);
+    }
+  }
+
+  //    Code for reading NMEA Data from PX or a simulator
+  
+  if(RTK.available()>0){
+    char temp = RTK.read();
+    Serial.print(temp);
+    unsigned long currentTime = millis();
+
+    if(currentTime - previousTime >= eventInterval){
+        if(ck==0){
+          ck = 1;
+          globe = str0;
+          str0 = "";
+          Serial.print(globe);
+        }
+        else if(ck==1){
+          ck = 0;
+          globe = str1;
+          str1 = "";
+          Serial.print(globe);
+        }
+        previousTime = currentTime;
+    }
+    else{
+      if(ck == 0){
+        str0 += temp;  
+      }
+      else{
+        str1 += temp;  
+      }
     }
   }
 }
 
 void hostServer()
 {
-   server.begin();
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-    {
-        request->send(200, "text/plain", "ESP 32 web server");
-    });
+  server.begin();
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+  {
+      request->send(200, "text/plain", "ESP 32 web server");
+  });
 
-    server.on("/files", HTTP_GET, [](AsyncWebServerRequest *request)
-    {
-        String files = listDir(SD, "/", 0); //list files in directory
-        request->send(200, "text/plain", files);
-    });
+  server.on("/files", HTTP_GET, [](AsyncWebServerRequest *request)
+  {
+      String files = listDir(SD, "/", 0); //list files in directory
+      request->send(200, "text/plain", files);
+  });
 
-    server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request)
-    {
-        int fnsstart = request->url().lastIndexOf('/');
-        String fn = request->url().substring(fnsstart);
-        Serial.println("Download File: "+fn);
-        // ... and finally
-        request->send(SD, fn, String(), true);
-    });
+  server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request)
+  {
+      int fnsstart = request->url().lastIndexOf('/');
+      String fn = request->url().substring(fnsstart);
+      Serial.println("Download File: "+fn);
+      // ... and finally
+      request->send(SD, fn, String(), true);
+  });
 
-    server.on("/delete", HTTP_GET, [](AsyncWebServerRequest *request)
-    {
-        int fnsstart = request->url().lastIndexOf('/');
-        String fn = request->url().substring(fnsstart);
-        // Serial.println("Download File: "+fn);
-        // ... and finally
-        deleteFile(SD, fn);
-        String files = listDir(SD, "/", 0);
-        request->send(200, "text/plain", files); //send back remaining files
-    }); 
+  server.on("/delete", HTTP_GET, [](AsyncWebServerRequest *request)
+  {
+      int fnsstart = request->url().lastIndexOf('/');
+      String fn = request->url().substring(fnsstart);
+      // Serial.println("Download File: "+fn);
+      // ... and finally
+      deleteFile(SD, fn);
+      String files = listDir(SD, "/", 0);
+      request->send(200, "text/plain", files); //send back remaining files
+  }); 
   
   server.on("/command", HTTP_GET, [](AsyncWebServerRequest *request){
     int fnsstart = request->url().indexOf('$');
@@ -763,7 +789,6 @@ void hostServer()
     String response;
     if (WiFi.status() == WL_CONNECTED)
     {
-      //response = "{ \"exists\": \"true\", \"ssid\":\"" +String(SSID1)+ "\",\"ip\":\""+IpAddress2String(WiFi.localIP())+"\"}";
       response = String(ssid1) + ":" + IpAddress2String(WiFi.localIP());
     }
     else
@@ -775,7 +800,12 @@ void hostServer()
   });
 
   server.on("/livedata", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(200, "text/plain", globe); 
+    srand(time(0));
+    int lat = (rand() % 50) + 1;
+    int lon = (rand() % 50) + 2;
+    String globe = "$GPRMC,144326.00,A," + String(lat) + ",N," + String(lon) + ",W,0.080,323.3,210307,0.0,E,A*20";
+    Serial.println(globe);
+    request->send(200, "text/plain", globe);
   });
 }
 
@@ -808,6 +838,7 @@ void RoverMain()
   mpu6050.update();
   button.tick();
   delay(10);
+  
 // windows
   if (flag==0)//opens satellite window
   {
@@ -862,37 +893,7 @@ void RoverMain()
     window10();
     delay(1000);
     winflag10=0;
-  }
-//    Code for reading NMEA Data from PX or a simulator
-  
-  if(RTK.available()){
-    char temp = RTK.read();
-    unsigned long currentTime = millis();
-
-    if(currentTime - previousTime >= eventInterval){
-        if(ck==0){
-          ck = 1;
-          globe = str0;
-          str0 = "";
-          //Serial.print(globe);
-        }
-        else if(ck==1){
-          ck = 0;
-          globe = str1;
-          str1 = "";
-          //Serial.print(globe);
-        }
-        previousTime = currentTime;
-    }
-    else{
-      if(ck == 0){
-        str0 += temp;  
-      }
-      else{
-        str1 += temp;  
-      }
-    }
-  }
+  }  
 }
 
 void BaseSetup()
@@ -913,8 +914,10 @@ void BaseMain()
   while(RTK.available() > 0)
   {
     //Serial Passthrough
+    
     char ch = RTK.read();
     LoRa.write(ch);  
+    
     //or may be simply
     //LoRa.write(RTK.read());   
   }
