@@ -310,7 +310,7 @@ String commandPallete(String command){
     if (WiFi.status() == WL_CONNECTED)
     {
       Serial.println("WiFi connection estabilished with "+String(ssid1));
-      Serial.print("IP Address : ");
+      Serial.println("IP Address: ");
       Serial.println(WiFi.localIP());
 
       WiFiIp = IpAddress2String(WiFi.localIP());
@@ -679,13 +679,17 @@ void parser()
     
     else if(command.equals("$EZ_RTK,GNSS-VIEWER,RTKCOMMAND\n") || command.equals("$EZ_RTK,GNSS-VIEWER,RTKCOMMAND"))
     {
-      
       Serial.println("CLOSE THE SOFTWARE AND CONNECT PORT AT 115200 BAUD IN GNSS VIEWER TO CONFIGURE RTK");
       command="";
       gnssflag =!gnssflag;
       
       GNSScomm(); //transfers gnss viewer command to 
-    } 
+    }
+    
+    else if(command.startsWith("$EZ_RTK,SET-WIFI,", 0)){
+      commandPallete(command);
+    }
+    
     else
     {
       Serial.println("Invalid command. Please Check your command : "+command);
@@ -696,7 +700,7 @@ void parser()
   
   if(RTK.available()>0){
     char temp = RTK.read();
-    Serial.print(temp);
+//    Serial.print(temp);
     unsigned long currentTime = millis();
 
     if(currentTime - previousTime >= eventInterval){
@@ -704,13 +708,13 @@ void parser()
           ck = 1;
           globe = str0;
           str0 = "";
-          Serial.print(globe);
+//          Serial.print(globe);
         }
         else if(ck==1){
           ck = 0;
           globe = str1;
           str1 = "";
-          Serial.print(globe);
+//          Serial.print(globe);
         }
         previousTime = currentTime;
     }
@@ -804,7 +808,7 @@ void hostServer()
     int lat = (rand() % 50) + 1;
     int lon = (rand() % 50) + 2;
     String globe = "$GPRMC,144326.00,A," + String(lat) + ",N," + String(lon) + ",W,0.080,323.3,210307,0.0,E,A*20";
-    Serial.println(globe);
+//    Serial.println(globe);
     request->send(200, "text/plain", globe);
   });
 }
