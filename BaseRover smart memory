@@ -39,7 +39,7 @@ String fileName;
 String WiFiIp = "";
 
 //character type variable
-char* ssid = "$EZ_RTK";
+char* ssid = "$EZ_RTK_ROVER";
 char* password = "1234567890";
 char ssid1[30], password1[30];
 
@@ -409,10 +409,10 @@ void loop()
 
 void window1() //sattelite window
 {
-  while(RTK.available() > 0)
-  {
-   gps.encode(RTK.read());
-  }
+//  while(RTK.available() > 0)
+//  {
+//   gps.encode(RTK.read());
+//  }
   
   display.clearDisplay();
   display.setCursor(0,0);
@@ -577,7 +577,7 @@ void SD_Card_Setup()
 
 int readMode()
 {
-  File myFile1=SD.open("/ConfigMode.txt", FILE_READ);
+  File myFile1 = SD.open("/ConfigMode.txt", FILE_READ);
   return myFile1.read();
   myFile1.close();
 }
@@ -599,10 +599,10 @@ void writeMode(int newMode)
 
 
 void doubleclick()                                  // what happens when button is double-pressed
-{                                
- Serial.println("\n\nDouble click - Data to be logged"); 
- ClickStatus="DoubleClick";
- logJson();
+{
+  Serial.println("\n\nDouble click - Data to be logged"); 
+  ClickStatus = "DoubleClick";
+  logJson();
 } 
  
 void singleclick()                                  // what happens when the button is clicked
@@ -611,8 +611,8 @@ void singleclick()                                  // what happens when the but
 
   flag++;
   if (flag>=3)
-  {  
-  flag=0;
+  {
+    flag=0;
   }                               
 }
  
@@ -700,7 +700,7 @@ void parser()
   
   if(RTK.available()>0){
     char temp = RTK.read();
-//    Serial.print(temp);
+    Serial.print(temp);
     unsigned long currentTime = millis();
 
     if(currentTime - previousTime >= eventInterval){
@@ -804,10 +804,10 @@ void hostServer()
   });
 
   server.on("/livedata", HTTP_GET, [](AsyncWebServerRequest *request){
-    srand(time(0));
-    int lat = (rand() % 50) + 1;
-    int lon = (rand() % 50) + 2;
-    String globe = "$GPRMC,144326.00,A," + String(lat) + ",N," + String(lon) + ",W,0.080,323.3,210307,0.0,E,A*20";
+//    srand(time(0));
+//    int lat = (rand() % 50) + 1;
+//    int lon = (rand() % 50) + 2;
+//    String globe = "$GPRMC,144326.00,A," + String(lat) + ",N," + String(lon) + ",W,0.080,323.3,210307,0.0,E,A*20";
 //    Serial.println(globe);
     request->send(200, "text/plain", globe);
   });
