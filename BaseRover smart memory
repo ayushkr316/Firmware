@@ -1,7 +1,8 @@
 #include "FS.h"
 #include <WiFi.h>
 #include "ESPAsyncWebServer.h"
-#include <MPU6050_tockn.h>
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -51,7 +52,8 @@ unsigned long previousTime = 0;
 
 //objects declaration
 AsyncWebServer server(80);
-MPU6050 mpu6050(Wire);
+//MPU6050 mpu6050(Wire);
+Adafruit_MPU6050 mpu;
 HardwareSerial RTK(1);
 HardwareSerial LoRa(2);
 TinyGPSPlus gps;
@@ -350,7 +352,7 @@ void setup() {
   button.attachClick(singleclick);                  // link the function to be called on a singleclick event.
   button.attachLongPressStop(longclick);
 
-// Display Text
+  // Display Text
 
   display.setTextSize(1);
   display.setTextColor(WHITE);
@@ -359,10 +361,79 @@ void setup() {
   display.setTextColor(BLACK, WHITE);
   display.print("   ");
   display.display(); 
-  mpu6050.begin();
+
+  // Checking MPU Initialization
+  if (!mpu.begin()) {
+    Serial.println("Failed to find MPU6050 chip");
+    while (1) {
+      delay(10);
+    }
+  }
+
+  Serial.println("MPU6050 Starting!");
+  
   display.print("   ");  
   display.display(); 
-  mpu6050.calcGyroOffsets(true);
+ 
+  mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+  Serial.print("Accelerometer range set to: ");
+  switch (mpu.getAccelerometerRange()) {
+  case MPU6050_RANGE_2_G:
+    Serial.println("+-2G");
+    break;
+  case MPU6050_RANGE_4_G:
+    Serial.println("+-4G");
+    break;
+  case MPU6050_RANGE_8_G:
+    Serial.println("+-8G");
+    break;
+  case MPU6050_RANGE_16_G:
+    Serial.println("+-16G");
+    break;
+  }
+  mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+  Serial.print("Gyro range set to: ");
+  switch (mpu.getGyroRange()) {
+  case MPU6050_RANGE_250_DEG:
+    Serial.println("+- 250 deg/s");
+    break;
+  case MPU6050_RANGE_500_DEG:
+    Serial.println("+- 500 deg/s");
+    break;
+  case MPU6050_RANGE_1000_DEG:
+    Serial.println("+- 1000 deg/s");
+    break;
+  case MPU6050_RANGE_2000_DEG:
+    Serial.println("+- 2000 deg/s");
+    break;
+  }
+
+  mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
+  Serial.print("Filter bandwidth set to: ");
+  switch (mpu.getFilterBandwidth()) {
+  case MPU6050_BAND_260_HZ:
+    Serial.println("260 Hz");
+    break;
+  case MPU6050_BAND_184_HZ:
+    Serial.println("184 Hz");
+    break;
+  case MPU6050_BAND_94_HZ:
+    Serial.println("94 Hz");
+    break;
+  case MPU6050_BAND_44_HZ:
+    Serial.println("44 Hz");
+    break;
+  case MPU6050_BAND_21_HZ:
+    Serial.println("21 Hz");
+    break;
+  case MPU6050_BAND_10_HZ:
+    Serial.println("10 Hz");
+    break;
+  case MPU6050_BAND_5_HZ:
+    Serial.println("5 Hz");
+    break;
+  }
+  
   SD_Card_Setup();
   
   for (int i=0; i<3; i++)
@@ -445,18 +516,27 @@ void window1() //sattelite window
 
 void window2() //IMU  window
 {
-  display.clearDisplay();
-  display.setCursor(0,0);
-  display.setTextSize(2);
-  display.println("   IMU   ");
-  display.setTextSize(1);
-  display.print("\n    X : ");
-  display.println(mpu6050.getAngleX());
-  display.print("    Y : ");
-  display.println(mpu6050.getAngleY());
-  display.print("    Z : ");
-  display.println(mpu6050.getAngleX());
-  display.display();
+    sensors_event_t a, g, temp;
+    mpu.getEvent(&a, &g, &temp);  
+
+    display.clearDisplay();
+    display.setCursor(0,0);
+    display.setTextSize(2);
+    display.println("   IMU   ");
+    
+    display.setTextSize(1);
+    
+    display.print("\n    X : ");
+    display.println(g.gyro.x);
+    
+    display.print("    Y : ");
+    display.println(g.gyro.y);
+    
+    display.print("    Z : ");
+    display.println(g.gyro.z);
+    
+    display.display();
+    delay(500);
 }
 void window3() //wifi window
 {
@@ -700,7 +780,7 @@ void parser()
   
   if(RTK.available()>0){
     char temp = RTK.read();
-    Serial.print(temp);
+//    Serial.print(temp);
     unsigned long currentTime = millis();
 
     if(currentTime - previousTime >= eventInterval){
@@ -839,7 +919,7 @@ void RoverSetup()
 
 void RoverMain()
 {
-  mpu6050.update();
+//  mpu6050.update();
   button.tick();
   delay(10);
   
